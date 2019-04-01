@@ -11,3 +11,11 @@ wrds = wrds_connect(username = Sys.getenv("WRDS_NAME"), password = Sys.getenv("W
 schema_list = wrds_schema_list(wrds)
 table_list = wrds_table_list(wrds = wrds, schema = "compa")
 variable_list = wrds_variable_list(wrds = wrds, schema = "compa", table = "funda")
+
+# Test Compustat functions
+
+# Test CRSP functions
+
+# Test Compustat-CRSP functions
+
+# Test Mergent functions
