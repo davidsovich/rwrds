@@ -12,10 +12,10 @@ wrds_table_list(wrds, schema)
 \item{schema}{Character. WRDS schema from \code{wrds_schema_list}.}
 }
 \description{
-\code{wrds_table_list} lists the tables in a WRDS schema.
+\code{wrds_table_list} lists the tables in a WRDS schema
 }
 \details{
-NA
+Each WRDS schema contains its own set of tables. Tables are queried directly in the package.
 }
 \examples{
 wrds = wrds_connect(username = "testing", password = "123456")

@@ -2,7 +2,7 @@
 % Please edit documentation in R/general_wrds.R
 \name{wrds_schema_list}
 \alias{wrds_schema_list}
-\title{List available schemas in WRDS.}
+\title{List available schemas in WRDS}
 \usage{
 wrds_schema_list(wrds)
 }

@@ -35,10 +35,10 @@ wrds_connect = function(username, password) {
 #' wrds = wrds_connect(username = "testing", password = "123456")
 #' schema_list = wrds_schema_list(wrds = wrds)
 wrds_schema_list = function(wrds) {
-  dbGetQuery(wrds, paste("SELECT DISTINCT table_schema",
-                         "FROM information_schema.tables",
-                         "WHERE table_type = 'VIEW' OR table_type = 'FOREIGN TABLE'",
-                         "ORDER BY table_schema"))
+  DBI::dbGetQuery (wrds, paste("SELECT DISTINCT table_schema",
+                               "FROM information_schema.tables",
+                               "WHERE table_type = 'VIEW' OR table_type = 'FOREIGN TABLE'",
+                               "ORDER BY table_schema"))
 }
 
 #' List the tables in a WRDS schema.
@@ -55,10 +55,10 @@ wrds_schema_list = function(wrds) {
 #' wrds = wrds_connect(username = "testing", password = "123456")
 #' table_list = wrds_table_list(wrds = wrds, schema = "compa")
 wrds_table_list = function(wrds, schema) {
-  dbGetQuery(wrds, paste("SELECT DISTINCT table_name",
-                         "FROM information_schema.columns",
-                          "WHERE table_schema = ", paste0("'", schema, "'"),
-                          "ORDER BY table_name"))
+  DBI::dbGetQuery (wrds, paste("SELECT DISTINCT table_name",
+                               "FROM information_schema.columns",
+                               "WHERE table_schema = ", paste0("'", schema, "'"),
+                               "ORDER BY table_name"))
 }
 
 #' List the variables in a WRDS table
@@ -76,9 +76,9 @@ wrds_table_list = function(wrds, schema) {
 #' wrds = wrds_connect(username = "testing", password = "123456")
 #' variable_list = wrds_variable_list(wrds = wrds, schema = "compa", table = "funda")
 wrds_variable_list = function(wrds, schema, table) {
-  dbGetQuery(wrds, paste("SELECT column_name, udt_name",
-                         "FROM information_schema.columns",
-                         "WHERE table_schema = ", paste0("'", schema, "'"),
-                         " AND table_name = ", paste0("'", table, "'"),
-                         "ORDER BY column_name"))
+  DBI::dbGetQuery (wrds, paste("SELECT column_name, udt_name",
+                               "FROM information_schema.columns",
+                               "WHERE table_schema = ", paste0("'", schema, "'"),
+                               " AND table_name = ", paste0("'", table, "'"),
+                               "ORDER BY column_name"))
 }

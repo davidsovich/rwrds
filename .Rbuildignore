@@ -1,3 +1,8 @@
+^README\.md$
+^\.gitignore$
+^\.git$
+^tests$
+^data-raw$
 ^README\.Rmd$
 ^LICENSE\.md$
 ^.*\.Rproj$

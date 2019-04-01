@@ -2,7 +2,7 @@
 % Please edit documentation in R/general_wrds.R
 \name{wrds_variable_list}
 \alias{wrds_variable_list}
-\title{List the variables in a WRDS table.}
+\title{List the variables in a WRDS table}
 \usage{
 wrds_variable_list(wrds, schema, table)
 }
@@ -17,7 +17,7 @@ wrds_variable_list(wrds, schema, table)
 \code{wrds_variable_list} lists the columns (variables) in a WRDS table.
 }
 \details{
-NA
+NA.
 }
 \examples{
 wrds = wrds_connect(username = "testing", password = "123456")

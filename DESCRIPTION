@@ -13,5 +13,6 @@ Imports:
     dplyr,
     dbplyr,
     DBI,
-    RPostgres
+    RPostgres,
+    sqldf
 RoxygenNote: 6.1.1
