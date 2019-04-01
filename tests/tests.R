@@ -18,6 +18,10 @@ comp_names = compustat_names(wrds = wrds, subset = FALSE, dl = FALSE)
 compa_annual = compustat_annual(wrds = wrds, begin_year = 2010, end_year = 2011) #removes dups
 
 # Test CRSP functions
+crsp_names = crsp_header(wrds = wrds, subset = TRUE, dl = FALSE)
+crspa_df = crsp_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
+crspm_df = crsp_monthly(wrds = wrds, begin_year = 2010, end_year = 2012, dl = TRUE)
+crspd_df = crsp_daily(wrds = wrds, begin_year = 2010, end_year = 2010, dl = TRUE)
 
 # Test Compustat-CRSP functions
 linking_df = compustat_crsp_linking_table(wrds = wrds)

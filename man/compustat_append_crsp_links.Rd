@@ -2,7 +2,7 @@
 % Please edit documentation in R/compustat_crsp.R
 \name{compustat_append_crsp_links}
 \alias{compustat_append_crsp_links}
-\title{Append CRSP identifiers onto Compustat gvkeys}
+\title{Append CRSP identifiers onto a Compustat data frame}
 \usage{
 compustat_append_crsp_links(wrds, comp_df)
 }

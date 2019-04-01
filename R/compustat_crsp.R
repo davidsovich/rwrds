@@ -26,7 +26,6 @@ compustat_crsp_linking_table = function(wrds, dl = TRUE) {
   }
 }
 
-
 #' Append CRSP identifiers onto a Compustat data frame
 #'
 #' \code{compustat_append_crsp_links} appends on CRSP permno and permco identifiers onto Compustat
