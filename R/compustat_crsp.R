@@ -62,4 +62,44 @@ compustat_append_crsp_links = function(wrds, comp_df) {
 }
 
 
+#' Download annual Compustat with CRSP annual returns
+#'
+#' \code{compustat_annual} downloads the annual Compustat table and merges on annual CRSP returns.
+#'
+#' Downloads the annual Compustat file using the \code{compustat_annual} function. Appends on
+#' CRSP links and returns using the functions \code{compustat_append_crsp_links} and
+#' \code{crsp_annual}, respectively. The annual return merge is naive and is based on a fiscal year
+#' to calendar year match.
+#'
+#' @export
+#'
+#' @param wrds WRDS connection object from \code{wrds_connect} function.
+#' @param begin_year Numeric.
+#' @param end_year Numeric.
+#' @param subset Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
+#' @examples
+#' wrds = wrds_connect(username = "testing", password = "123456")
+#' comp_crsp_df = compustat_crsp_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
+compustat_crsp_annual = function(wrds, begin_year, end_year, subset = TRUE) {
+  comp_df = compustat_annual(wrds = wrds,
+                             begin_year = begin_year,
+                             end_year = end_year,
+                             subset = subset)
+  comp_df = compustat_append_crsp_links(wrds = wrds, comp_df = comp_df)
+  crsp_df = crsp_annual(wrds = wrds,
+                        begin_year = begin_year,
+                        end_year = end_year,
+                        dl = TRUE) %>%
+    dplyr::select(year, permno, permco, annual_ret, prc_eoy, shrout_eoy, total_volume) %>%
+    dplyr::rename(lpermno = permno, lpermco = permco)
+  comp_df = comp_df %>%
+    dplyr::left_join(y = crsp_df,
+              by = c("lpermno"="lpermno", "lpermco"="lpermco", "fyear"="year"))
+  comp_df
+}
+
+
+
+
+
 

@@ -61,38 +61,34 @@ wrds = wrds_connect(username = Sys.getenv("WRDS_NAME"), password = Sys.getenv("W
 
 #Download data from Compustat
 
-   # Custom data series for CES state data
-   ces_df = ces_download(bls_key = Sys.getenv("BLS_KEY"),
-                      start_year = 2010,
-                      end_year = 2015,
-                      adjustment = "U",
-                      industries = "05000000",
-                      data_types = c("01", "03", "11"),
-                      states = "1900000")
+   # Annual Compustat data
+   comp_df = compustat_annual(wrds = wrds, 
+                              begin_year = 2010, 
+                              end_year = 2011)
    
-   # Pre-build CES data series for national employment
-   ces_df = ces_employment(bls_key = Sys.getenv("BLS_KEY"),
-                           start_year = 2010,
-                           end_year = 2015)
+   # Annual Compustat data with CRSP returns
+   comp_crsp_df = compustat_crsp_annual(wrds = wrds, 
+                                        begin_year = 2010, 
+                                        end_year = 2012)
 
 #Download data from CRSP
 
-   # Custom data series for JOLTS regional data
-   jolts_df = jolts_download(bls_key = Sys.getenv("BLS_KEY"),
-                             start_year = 2010,
-                             end_year = 2015,
-                             adjustment = "S",
-                             industries = "000000",
-                             data_types = "HI",
-                             data_levels = "L",
-                             regions = c("MW", "NE", "SO", "WE"))
+   # Annual CRSP returns
+   crspa_df = crsp_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
    
-   # Pre-built JOLTS data series
-   jolts_df = jolts_hiring(bls_key = Sys.getenv("BLS_KEY"),
-                           start_year = 2010,
-                           end_year = 2015)
+   # Monthly CRSP returns
+   crspm_df = crsp_monthly(wrds = wrds, begin_year = 2010, end_year = 2012, dl = TRUE)
+   
+   # Daily CRSP returns
+   crspd_df = crsp_daily(wrds = wrds, begin_year = 2010, end_year = 2010, dl = FALSE)
+   
+# Download Fama-French factors
+   
+# Download Mergent data
    
 # Custom WRDS query
+   
+# Submission of a text file to WRDS cloud
 
 ```
 

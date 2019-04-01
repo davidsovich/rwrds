@@ -26,5 +26,7 @@ crspd_df = crsp_daily(wrds = wrds, begin_year = 2010, end_year = 2010, dl = TRUE
 # Test Compustat-CRSP functions
 linking_df = compustat_crsp_linking_table(wrds = wrds)
 comp_linked = compustat_append_crsp_links(wrds = wrds, comp_df = compa_annual)
+comp_crsp_df = compustat_crsp_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
 
 # Test Mergent functions
+mergent_issues_df = mergent_issues(wrds = wrds, clean = TRUE, subset = TRUE, dl = TRUE)

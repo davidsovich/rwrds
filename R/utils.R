@@ -58,7 +58,10 @@ mergent_standard_variables = function() {
   id_vars = c("complete_cusip", "issuer_cusip", "issue_cusip", "isin", "issue_id", "issuer_id", "active_issue")
 
   #Issue characteristics
-  issue_vars = c("bond_type", "security_level", "mtn", "enhancement", "rule_144a", "coupon_type", "coupon", "offering_amt", "day_count_basis")
+  issue_vars = c("bond_type", "security_level", "mtn", "enhancement", "rule_144a", "coupon_type",
+                 "coupon", "offering_amt", "day_count_basis", "foreign_currency", "perpetual",
+                 "private_placement", "preferred_security", "slob", "exchangeable", "unit_deal",
+                 "pay_in_kind", "defeased")
 
   #Option variables
   option_vars = c("convertible", "asset_backed", "putable")
@@ -74,4 +77,53 @@ mergent_standard_variables = function() {
 
 }
 
+# Mergent helper databases ------------------------------------------------------------------------
 
+# Mergent callable and sinking fund flag table
+mergent_callable = function(wrds, dl = FALSE) {
+  callable_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_redemption")) %>%
+    dplyr::select(issue_id, callable, sinking_fund) %>%
+    #dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
+    dplyr::group_by(issue_id) %>%
+    dplyr::mutate( row_num = dplyr::row_number() ) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter( row_num == 1 ) %>%
+    dplyr::select(-row_num)
+  if(dl == TRUE) {
+    callable_df %>% dplyr::collect()
+  } else {
+    callable_df
+  }
+}
+
+# Mergent agent ID and industry table
+mergent_agent = function(wrds, dl = FALSE) {
+  agent_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_issuer")) %>%
+    dplyr::select(issuer_id, agent_id, industry_group,
+                  industry_code, naics_code, country_domicile ) %>%
+    dplyr::mutate(industry_group = as.numeric(industry_group),
+                  industry_code = as.numeric(industry_code))
+  if(dl == TRUE) {
+    agent_df %>% dplyr::collect()
+  } else {
+    agent_df
+  }
+}
+
+# Mergent stock ticker table
+mergent_ticker = function(wrds, dl = FALSE) {
+  ticker_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_exchange_listing")) %>%
+    dplyr::filter(!is.na(ticker),
+                  exchange %in% c("N", "NAS", "A")) %>%
+    #dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
+    dplyr::group_by(issuer_id) %>%
+    dplyr::mutate(row_num = dplyr::row_number()) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(row_num == 1) %>%
+    dplyr::select(-row_num)
+  if(dl == TRUE) {
+    ticker_df %>% dplyr::collect()
+  } else {
+    ticker_df
+  }
+}
