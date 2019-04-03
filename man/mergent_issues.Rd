@@ -9,9 +9,10 @@ mergent_issues(wrds, clean = TRUE, subset = TRUE, dl = TRUE)
 \arguments{
 \item{wrds}{WRDS connection object from \code{wrds_connect} function.}
 
+\item{clean}{Optional Boolean. Clean the data to receive common bonds? Defaults to
+\code{TRUE}.}
+
 \item{subset}{Optional Boolean. Download recommended subset of variables? Defaults to
-\code{TRUE}.
-#' @param clean Optional Boolean. Clean the data to receive common bonds? Defaults to
 \code{TRUE}.}
 
 \item{dl}{Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
@@ -28,7 +29,8 @@ argument to \code{FALSE}. By default, this function also cleans the data of the 
 types of bonds: foreign currency notes, private placements, perpetuals, preferred securities,
 retail notes, slobs, exchangeables, unit deals, pay-in-kinds, defeased bonds, and bonds with
 non-strictly positive offering amounts and missing coupon types, issue ids, maturity, and
-offering date.
+offering date. By default, also merges on initial credit ratings for the issue and makes
+simple variable transformations.
 }
 \examples{
 wrds = wrds_connect(username = "testing", password = "123456")

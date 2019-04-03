@@ -83,7 +83,7 @@ mergent_standard_variables = function() {
 mergent_callable = function(wrds, dl = FALSE) {
   callable_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_redemption")) %>%
     dplyr::select(issue_id, callable, sinking_fund) %>%
-    #dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
+    # dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
     dplyr::group_by(issue_id) %>%
     dplyr::mutate( row_num = dplyr::row_number() ) %>%
     dplyr::ungroup() %>%
@@ -115,7 +115,7 @@ mergent_ticker = function(wrds, dl = FALSE) {
   ticker_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_exchange_listing")) %>%
     dplyr::filter(!is.na(ticker),
                   exchange %in% c("N", "NAS", "A")) %>%
-    #dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
+    # dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
     dplyr::group_by(issuer_id) %>%
     dplyr::mutate(row_num = dplyr::row_number()) %>%
     dplyr::ungroup() %>%
@@ -127,3 +127,123 @@ mergent_ticker = function(wrds, dl = FALSE) {
     ticker_df
   }
 }
+
+# Mergent initial credit ratings for bond issuances
+mergent_initial_ratings = function(wrds, dl = FALSE, date_distance = 1) {
+  ratings_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_ratings")) %>%
+    dplyr::filter(rating_type %in% c("MR", "FR", "SPR"),
+                  reason == "IN",
+                  !is.na(rating),
+                  rating != "NR") %>%
+    # dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
+    dplyr::group_by(issue_id, rating_type) %>%
+    dplyr::mutate(row_num = dplyr::row_number()) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(row_num == 1) %>%
+    dplyr::select(issue_id, rating_type, rating, rating_date) %>%
+    dplyr::inner_join(y = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_mergedissue")) %>%
+                          dplyr::select(issue_id, offering_date),
+                      by = c("issue_id" = "issue_id")) %>%
+    dplyr::mutate(dist = abs(rating_date - offering_date)/365.25) %>%
+    dplyr::filter(!is.na(dist),
+                  dist <= date_distance) %>%
+    dplyr::select(issue_id, rating_type, rating, rating_date) %>%
+    dplyr::mutate(sp_initial_rating = ifelse(rating_type == "SPR", tolower(rating), NA),
+                  moodys_initial_rating = ifelse(rating_type == "MR", tolower(rating), NA),
+                  fitch_initial_rating = ifelse(rating_type == "FR", tolower(rating), NA)) %>%
+    dplyr::group_by(issue_id) %>%
+    dplyr::summarise(sp_initial_rating = max(sp_initial_rating, na.rm = TRUE),
+                     moodys_initial_rating = max(moodys_initial_rating, na.rm = TRUE),
+                     fitch_initial_rating = max(fitch_initial_rating, na.rm = TRUE),
+                     first_rating_date = min(rating_date, na.rm = TRUE))
+  if(dl == TRUE) {
+    ratings_df %>% dplyr::collect()
+  } else {
+    ratings_df
+  }
+}
+
+
+# Tack on ratings numbers rating_tto a given set of ratings
+mergent_add_ratings_no = function(mergent_df, sp_col_name, moodys_col_name, fitch_col_name,
+                          sp_name = "sp_rating_num", moodys_name = "moodys_rating_num",
+                          fitch_name = "fitch_rating_num", lcase = TRUE) {
+  data("rating_table", envir = environment())
+  # Convert to lower case if needed and create new merging variable
+  if(lcase == TRUE) {
+    rating_table = rating_table %>%
+      dplyr::mutate(m_rating = tolower(m_rating),
+                    s_rating = tolower(s_rating),
+                    f_rating = tolower(f_rating))
+  }
+  rating_table = rating_table %>%
+    dplyr::rename(abcd1234_s = s_rating,
+                  abcd1234_m = m_rating,
+                  abcd1234_f = f_rating)
+  # Merge on SP ratings
+  if(!missing(sp_col_name)) {
+    if(sp_col_name %in% names(mergent_df)) {
+      mergent_df[, "abcd1234_s"] = mergent_df[, sp_col_name]
+      temp_df = rating_table
+      temp_df[, sp_name] = temp_df[, "num_rating"]
+      temp_df = temp_df[, c("abcd1234_s", sp_name)]
+      mergent_df = mergent_df %>%
+        dplyr::left_join(y = temp_df,
+                         by = c("abcd1234_s" = "abcd1234_s")) %>%
+        dplyr::select(-dplyr::one_of(c("abcd1234_s")))
+    } else {
+      stop("Error! sp_column_name not found in supplied data.frame.")
+    }
+  }
+  # Merge on moodys ratings
+  if(!missing(moodys_col_name)) {
+    if(moodys_col_name %in% names(mergent_df)) {
+      mergent_df[, "abcd1234_m"] = mergent_df[, moodys_col_name]
+      temp_df = rating_table
+      temp_df[, moodys_name] = temp_df[, "num_rating"]
+      temp_df = temp_df[, c("abcd1234_m", moodys_name)]
+      mergent_df = mergent_df %>%
+        dplyr::left_join(y = temp_df,
+                         by = c("abcd1234_m" = "abcd1234_m")) %>%
+        dplyr::select(-dplyr::one_of(c("abcd1234_m")))
+    } else {
+      stop("Error! moodys_column_name not found in supplied data.frame.")
+    }
+  }
+  # Merge on fitch ratings
+  if(!missing(fitch_col_name)) {
+    if(fitch_col_name %in% names(mergent_df)) {
+      mergent_df[, "abcd1234_f"] = mergent_df[, fitch_col_name]
+      temp_df = rating_table
+      temp_df[, fitch_name] = temp_df[, "num_rating"]
+      temp_df = temp_df[, c("abcd1234_f", fitch_name)]
+      mergent_df = mergent_df %>%
+        dplyr::left_join(y = temp_df,
+                         by = c("abcd1234_f" = "abcd1234_f")) %>%
+        dplyr::select(-dplyr::one_of(c("abcd1234_f")))
+    } else {
+      stop("Error! fitch_column_name not found in supplied data.frame.")
+    }
+  }
+  mergent_df
+}
+
+# Tack on industry codes to data set
+mergent_add_indu_codes = function(mergent_df, merging_industry_code = "industry_code") {
+  if(!(merging_industry_code %in% names(mergent_df))) {
+    stop("Error! merging_industry_code must be a column in mergent_df.")
+  }
+  data("mergent_indu_table", envir = environment())
+  mergent_df[, "abcd12345"] = mergent_df[, merging_industry_code]
+  mergent_indu_table[, "abcd12345"] = mergent_indu_table[, "indu_code"]
+  mergent_df = mergent_df %>%
+    dplyr::left_join(y = mergent_indu_table %>%
+                       dplyr::select(abcd12345, mergent_indu_name, mergent_indu_group_name),
+                     by = c("abcd12345"="abcd12345")) %>%
+    dplyr::select(-dplyr::one_of("abcd12345"))
+}
+
+
+
+
+

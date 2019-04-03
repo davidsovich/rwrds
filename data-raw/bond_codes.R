@@ -1,7 +1,7 @@
 library(tidyverse)
 library(devtools)
 
-# Bond credit rating table ------------------------------------------------------------------------
+# Bond credit rating tables -----------------------------------------------------------------------
 
 rating_table = data.frame(
   m_rating = c("Aaa", "Aa1", "Aa2", "Aa3", "A1", "A2", "A3", "Baa1",
@@ -17,6 +17,22 @@ rating_table = data.frame(
   stringsAsFactors = FALSE)
 
 usethis::use_data(rating_table, overwrite = TRUE)
+
+rating_table_gathered = data.frame(
+  m_rating = c("Aaa", "Aa1", "Aa2", "Aa3", "A1", "A2", "A3", "Baa1",
+               "Baa2", "Baa3", "Ba1", "Ba2", "Ba3", "B1", "B2", "B3",
+               "Caa1", "Caa2", "Caa3", "Ca", "C", "D", "NR"),
+  s_rating = c("AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+",
+               "BBB", "BBB-", "BB+", "BB", "BB-", "B+", "B", "B-",
+               "CCC+", "CCC", "CCC-", "CC", "C", "D", "NR"),
+  f_rating = c("AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+",
+               "BBB", "BBB-", "BB+", "BB", "BB-", "B+", "B", "B-",
+               "CCC+", "CCC", "CCC-", "CC", "C", "D", "NR"),
+  num_rating = c(1:23),
+  stringsAsFactors = FALSE) %>%
+  tidyr::gather(key = "rating_agency", value = "rating", -num_rating)
+
+usethis::use_data(rating_table_gathered, overwrite = TRUE)
 
 # Mergent industry table --------------------------------------------------------------------------
 

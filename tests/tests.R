@@ -4,6 +4,7 @@ library(DBI)
 library(RPostgres)
 library(dbplyr)
 library(sqldf)
+devtools::load_all()
 
 # Connect to WRDS
 wrds = wrds_connect(username = Sys.getenv("WRDS_NAME"), password = Sys.getenv("WRDS_PASS"))
