@@ -15,8 +15,6 @@ crsp_annual(wrds, begin_year, end_year, dl = TRUE)
 
 \item{dl}{Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
 lazy \code{dplyr} table reference.}
-
-\item{subset}{Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.}
 }
 \description{
 \code{crsp_annual} downloads CRSP annual returns and end-of-year prices.

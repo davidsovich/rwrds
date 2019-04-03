@@ -43,7 +43,6 @@ crsp_header = function(wrds, subset = TRUE, dl = TRUE) {
 #' @param wrds WRDS connection object from \code{wrds_connect} function.
 #' @param begin_year Numeric.
 #' @param end_year Numeric.
-#' @param subset Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
 #' @param dl Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
 #' lazy \code{dplyr} table reference.
 #' @examples
@@ -94,7 +93,6 @@ crsp_annual = function(wrds, begin_year, end_year, dl = TRUE) {
 #' @param wrds WRDS connection object from \code{wrds_connect} function.
 #' @param begin_year Numeric.
 #' @param end_year Numeric.
-#' @param subset Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
 #' @param dl Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
 #' lazy \code{dplyr} table reference.
 #' @examples
@@ -158,6 +156,44 @@ crsp_daily = function(wrds, begin_year, end_year, dl = TRUE) {
     crsp_df %>% dplyr::collect()
   } else {
     crsp_df
+  }
+}
+
+
+#' Download CRSP
+#'
+#' \code{crsp} downloads the annual, monthly, or daily CRSP table.
+#'
+#' Downloads the annual, monthly, or daily CRSP Compustat table. The schema is crspa and the
+#' table is either the aggregated msf, msf, or dsf. Removes observations with weakly negative prices
+#' and shares outstanding. The function merges on identifying information from the
+#' CRSP header table. Please see either \code{crsp_annual}, \code{crsp_monthly}, or
+#' \code{crsp_daily} documentation for more details.
+#'
+#' @export
+#'
+#' @param wrds WRDS connection object from \code{wrds_connect} function.
+#' @param begin_year Numeric.
+#' @param end_year Numeric.
+#' @param frequency Character. Input either 'annual', 'monthly', or 'daily'.
+#' @param dl Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+#' lazy \code{dplyr} table reference.
+#' @examples
+#' wrds = wrds_connect(username = "testing", password = "123456")
+#' crsp_df = crsp(wrds = wrds, begin_year = 2010, end_year = 2012, frequency = 'annual')
+crsp = function(wrds, begin_year, end_year, frequency, dl = FALSE) {
+  if(missing(frequency)) {
+    stop("Error! Must choose either 'annual', 'monthly', or 'daily' frequency.")
+  }
+  if(!(frequency %in% c("annual", "monthly", "daily"))) {
+    stop("Error! Must choose either 'annual', 'monthly', or 'daily' frequency.")
+  }
+  if(frequency == "annual") {
+    crsp_annual(wrds = wrds, begin_year = begin_year, end_year = end_year, dl = dl)
+  } else if(frequency == "monthly") {
+    crsp_monthly(wrds = wrds, begin_year = begin_year, end_year = end_year, dl = dl)
+  } else {
+    crsp_daily(wrds = wrds, begin_year = begin_year, end_year = end_year, dl = dl)
   }
 }
 

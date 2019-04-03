@@ -1,0 +1,699 @@
+\documentclass[a4paper]{book}
+\usepackage[times,inconsolata,hyper]{Rd}
+\usepackage{makeidx}
+\usepackage[utf8]{inputenc} % @SET ENCODING@
+% \usepackage{graphicx} % @USE GRAPHICX@
+\makeindex{}
+\begin{document}
+\chapter*{}
+\begin{center}
+{\textbf{\huge rwrds}}
+\par\bigskip{\large \today}
+\end{center}
+\begin{description}
+\raggedright{}
+\inputencoding{utf8}
+\item[Type]\AsIs{Package}
+\item[Title]\AsIs{An R package for downloading and cleaning WRDS data.}
+\item[Version]\AsIs{0.1.0}
+\item[Description]\AsIs{An R package for downloading and cleaning data from WRDS.}
+\item[License]\AsIs{MIT + file LICENSE}
+\item[Encoding]\AsIs{UTF-8}
+\item[LazyData]\AsIs{true}
+\item[Imports]\AsIs{dplyr,
+dbplyr,
+DBI,
+RPostgres,
+sqldf}
+\item[RoxygenNote]\AsIs{6.1.1}
+\end{description}
+\Rdcontents{\R{} topics documented:}
+\inputencoding{utf8}
+\HeaderA{compustat}{Download Compustat}{compustat}
+%
+\begin{Description}\relax
+\code{compustat} downloads the annual or quarterly Compustat table.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+compustat(wrds, begin_year, end_year, frequency, vars = "default")
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{begin\_year}] Numeric.
+
+\item[\code{end\_year}] Numeric.
+
+\item[\code{frequency}] Character. Input either 'annual' or 'quarterly'.
+
+\item[\code{vars}] Optional character. Defaults to a recommended subset of variables. Choose 'all' if
+you want to download all variables. Otherwise, provide a list of variables.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads the annual or quarterly Compustat table. The table address is either compa.funda or
+compa.fundq. By default, the function downloads a subset of the variables. You can specify your
+own variable list by providing a string vector to the \code{vars} function. You can download all
+the variables by setting \code{vars} equal to 'all'.  By default, mergeos on industry
+information from the names table and removes duplicate gvkey fiscal quarter or
+fiscal year observations. The de-duping logic is to keep the observation with the fewest NA
+values. See function documentation for \code{compustat\_annual} and \code{compustat\_quarterly}.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+compa_df = compustat(wrds = wrds, begin_year = 2010, end_year = 2012, frequency = 'annual', vars = c('gvkey','fyear', 'revt'))
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{compustat\_annual}{Download annual Compustat}{compustat.Rul.annual}
+%
+\begin{Description}\relax
+\code{compustat\_annual} downloads the Compustat table with annual observations.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+compustat_annual(wrds, begin_year, end_year, subset = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{begin\_year}] Numeric.
+
+\item[\code{end\_year}] Numeric.
+
+\item[\code{subset}] Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads the annual observation Compustat table that is updated at an annual frequency. The
+table address is compa.funda. By default, the function only downloads a subset of the variables.
+You can download all the variables by setting the \code{subset} argument to \code{FALSE}.
+By default, merges on industry information from the names table and removes duplicate gvkey
+fiscal year observations. The de-duping logic is to keep the observation with the fewest NA
+values.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+compa_df = compustat_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{compustat\_append\_crsp\_links}{Append CRSP identifiers onto a Compustat data frame}{compustat.Rul.append.Rul.crsp.Rul.links}
+%
+\begin{Description}\relax
+\code{compustat\_append\_crsp\_links} appends on CRSP permno and permco identifiers onto Compustat
+gvkey identifiers.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+compustat_append_crsp_links(wrds, comp_df)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{comp\_df}] Compustat data.frame. Requires the gkvey and datadate fields to be present.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Appends on CRSP permno and permcos based on the standard Compsutat-CRSP linking table. The
+linking table address is crspa.ccmxpf\_linktable. Requires that the Compustat data.frame be
+physically located in memory (not a lazy \code{dplyr} table reference). Requires that the gvkey
+and datadate fields are present in the Compustat data.frame.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+compa_annual = compustat_annual(wrds = wrds, begin_year = 2010, end_year = 2011)
+comp_linked = compustat_append_crsp_links(wrds = wrds, comp_df = compa_annual)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{compustat\_crsp\_annual}{Download annual Compustat with CRSP annual returns}{compustat.Rul.crsp.Rul.annual}
+%
+\begin{Description}\relax
+\code{compustat\_annual} downloads the annual Compustat table and merges on annual CRSP returns.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+compustat_crsp_annual(wrds, begin_year, end_year, subset = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{begin\_year}] Numeric.
+
+\item[\code{end\_year}] Numeric.
+
+\item[\code{subset}] Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads the annual Compustat file using the \code{compustat\_annual} function. Appends on
+CRSP links and returns using the functions \code{compustat\_append\_crsp\_links} and
+\code{crsp\_annual}, respectively. The annual return merge is naive and is based on a fiscal year
+to calendar year match.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+comp_crsp_df = compustat_crsp_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{compustat\_crsp\_linking\_table}{Download Compustat-CRSP linking table}{compustat.Rul.crsp.Rul.linking.Rul.table}
+%
+\begin{Description}\relax
+\code{compustat\_crsp\_linking\_table} downloads the Compustat-CRSP linking table.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+compustat_crsp_linking_table(wrds, dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads the standard Compustat-CRSP linking table. The table address is crspa.ccmxpf\_linktable.
+By default, the function downloads the data. A lazy \code{dplyr} table reference can be returned
+by setting the \code{dl} argument to \code{FALSE}.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+linking_tbl = compustat_crsp_linking_table(wrds = wrds, dl = FALSE)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{compustat\_names}{Download Compustat names table}{compustat.Rul.names}
+%
+\begin{Description}\relax
+\code{compustat\_names} downloads the Compustat names table.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+compustat_names(wrds, subset = TRUE, dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{subset}] Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+The names table contains general gvkey-level information, such as NAICS industry. The table
+address is compa.names. By default, the function only downloads a subset of the variables.
+You can download all the variables by setting the \code{subset} argument to \code{FALSE}.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+names_df = compustat_names(wrds = wrds, subset = TRUE, dl = TRUE)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{crsp}{Download CRSP}{crsp}
+%
+\begin{Description}\relax
+\code{crsp} downloads the annual, monthly, or daily CRSP table.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+crsp(wrds, begin_year, end_year, frequency, dl = FALSE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{begin\_year}] Numeric.
+
+\item[\code{end\_year}] Numeric.
+
+\item[\code{frequency}] Character. Input either 'annual', 'monthly', or 'daily'.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads the annual, monthly, or daily CRSP Compustat table. The schema is crspa and the
+table is either the aggregated msf, msf, or dsf. Removes observations with weakly negative prices
+and shares outstanding. The function merges on identifying information from the
+CRSP header table. Please see either \code{crsp\_annual}, \code{crsp\_monthly}, or
+\code{crsp\_daily} documentation for more details.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+crsp_df = crsp(wrds = wrds, begin_year = 2010, end_year = 2012, frequency = 'annual')
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{crsp\_annual}{Download CRSP annual returns and end-of-year prices}{crsp.Rul.annual}
+%
+\begin{Description}\relax
+\code{crsp\_annual} downloads CRSP annual returns and end-of-year prices.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+crsp_annual(wrds, begin_year, end_year, dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{begin\_year}] Numeric.
+
+\item[\code{end\_year}] Numeric.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Constructs annual returns from the monthly stock file, located at crspa.msf. Only keeps permnos
+with a full year of data with non-missing values for returns and strictly positive values
+for shares outstanding and price. The function merges on identifying information from the
+CRSP header table.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+crspa_df = crsp_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{crsp\_daily}{Download CRSP daily return and price data}{crsp.Rul.daily}
+%
+\begin{Description}\relax
+\code{crsp\_daily} downloads CRSP daily returns and end-of-month prices.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+crsp_daily(wrds, begin_year, end_year, dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{begin\_year}] Numeric.
+
+\item[\code{end\_year}] Numeric.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+
+\item[\code{subset}] Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads data from table crspa.dsf. Removes observations with weakly negative prices and
+shares outstanding. The function merges on identifying information from the
+CRSP header table.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+crspd_df = crsp_daily(wrds = wrds, begin_year = 2010, end_year = 2010)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{crsp\_header}{Download CRSP header table}{crsp.Rul.header}
+%
+\begin{Description}\relax
+\code{crsp\_header} downloads the CRSP header table.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+crsp_header(wrds, subset = TRUE, dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{subset}] Optional Boolean. Download recommended subset of variables? Defaults to \code{TRUE}.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+The header table contains permno-level information, such as SIC industry. The table
+address is crspa.msfhdr. By default, the function only downloads a subset of the variables.
+You can download all the variables by setting the \code{subset} argument to \code{FALSE}.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+crsp_names = crsp_header(wrds = wrds, subset = TRUE, dl = FALSE)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{crsp\_monthly}{Download CRSP monthly return and price data}{crsp.Rul.monthly}
+%
+\begin{Description}\relax
+\code{crsp\_monthly} downloads CRSP monthly returns and end-of-month prices.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+crsp_monthly(wrds, begin_year, end_year, dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{begin\_year}] Numeric.
+
+\item[\code{end\_year}] Numeric.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads data from table crspa.msf. Removes observations with weakly negative prices and
+shares outstanding. The function merges on identifying information from the
+CRSP header table.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+crspm_df = crsp_monthly(wrds = wrds, begin_year = 2010, end_year = 2012)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{hello}{Hello, World!}{hello}
+%
+\begin{Description}\relax
+Prints 'Hello, world!'.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+hello()
+\end{verbatim}
+\end{Usage}
+%
+\begin{Examples}
+\begin{ExampleCode}
+hello()
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{mergent\_corporates}{Download Mergent corporate bonds}{mergent.Rul.corporates}
+%
+\begin{Description}\relax
+\code{mergent\_corporates} downloads corporate bond issues from the Mergent issues table
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+mergent_corporates(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE,
+  dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{clean}] Optional Boolean. Clean the data to remove data errors and missings? Defaults to
+\code{TRUE}.
+
+\item[\code{vanilla}] Optional Boolean. Restrict data to common vanilla bonds? Defaults to \code{TRUE}.
+
+\item[\code{subset}] Optional Boolean. Clean the data for errors and missing fields? Defaults to
+\code{TRUE}.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads issue-level bond data from the table fisd.fisd\_mergedissue for corporate bonds.
+Corporates are defined by being in utility, financial, or industrial Mergent industry groups,
+having bond types in CDEB, CMTN, CZ, CMTZ, UCID, or CP, and having security levels in
+SEN, SENS, SUB, or SS. This function calls the \code{mergent\_issues} function to download the
+data You can download all the variables by setting the \code{subset}
+argument to \code{FALSE}. By default, this function also cleans the data and restricts to
+vanilla corporates, which removes: floating rates notes, convertible bonds, foreign domiciled
+issuers, foreign currency notes, private placements, perpetuals, preferred securities,
+retail notes, slobs, exchangeables, unit deals, pay-in-kinds, defeased bonds, and bonds with
+non-strictly positive offering amounts and missing coupon types, issue ids, maturity, and
+offering date. By default, also merges on initial credit ratings for the issue and makes
+simple variable transformations.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+mergent_corps = mergent_corporates(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = FALSE)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{mergent\_issues}{Download Mergent bond issues table}{mergent.Rul.issues}
+%
+\begin{Description}\relax
+\code{mergent\_issues} downloads the Mergent bond issues table.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+mergent_issues(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE,
+  dl = TRUE)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{clean}] Optional Boolean. Clean the data to remove data errors and missings? Defaults to
+\code{TRUE}.
+
+\item[\code{vanilla}] Optional Boolean. Restrict data to common vanilla bonds? Defaults to \code{TRUE}.
+
+\item[\code{subset}] Optional Boolean. Clean the data for errors and missing fields? Defaults to
+\code{TRUE}.
+
+\item[\code{dl}] Optional Boolean. Download the data? Defaults to \code{TRUE}. \code{FALSE} outputs a
+lazy \code{dplyr} table reference.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Downloads issue-level bond data from the table fisd.fisd\_mergedissue. Appends on information
+from the callable, agentid, and exchangeable tables. By default, the function only downloads a
+subset of the variables. You can download all the variables by setting the \code{subset}
+argument to \code{FALSE}. By default, this function also cleans the data and restricts to
+vanilla bonds, which removes: floating rates notes, convertible bonds, foreign domiciled
+issuers, foreign currency notes, private placements, perpetuals, preferred securities,
+retail notes, slobs, exchangeables, unit deals, pay-in-kinds, defeased bonds, and bonds with
+non-strictly positive offering amounts and missing coupon types, issue ids, maturity, and
+offering date. By default, also merges on initial credit ratings for the issue and makes
+simple variable transformations.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+mergent_issues_df = mergent_issues(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = FALSE)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{wrds\_connect}{Connect to the WRDS cloud}{wrds.Rul.connect}
+%
+\begin{Description}\relax
+\code{wrds\_connect} creates a remote connection to the WRDS cloud.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+wrds_connect(username, password)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{username}] Character. WRDS username.
+
+\item[\code{password}] Character. WRDS password.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Note: WRDS cloud runs PostgreSQL.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = Sys.getenv("WRDS_NAME"), password = Sys.getenv("WRDS_PASS"))
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{wrds\_schema\_list}{List available schemas in WRDS}{wrds.Rul.schema.Rul.list}
+%
+\begin{Description}\relax
+\code{wrds\_schema\_list} downloads a list of the available schemas in the WRDS cloud.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+wrds_schema_list(wrds)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Schemas represent different data vendors in WRDS. Schemas can be thought of as separate
+databases that contain their own set of tables.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+schema_list = wrds_schema_list(wrds = wrds)
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{wrds\_table\_list}{List the tables in a WRDS schema.}{wrds.Rul.table.Rul.list}
+%
+\begin{Description}\relax
+\code{wrds\_table\_list} lists the tables in a WRDS schema
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+wrds_table_list(wrds, schema)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{schema}] Character. WRDS schema from \code{wrds\_schema\_list}.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+Each WRDS schema contains its own set of tables. Tables are queried directly in the package.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+table_list = wrds_table_list(wrds = wrds, schema = "compa")
+\end{ExampleCode}
+\end{Examples}
+\inputencoding{utf8}
+\HeaderA{wrds\_variable\_list}{List the variables in a WRDS table}{wrds.Rul.variable.Rul.list}
+%
+\begin{Description}\relax
+\code{wrds\_variable\_list} lists the columns (variables) in a WRDS table.
+\end{Description}
+%
+\begin{Usage}
+\begin{verbatim}
+wrds_variable_list(wrds, schema, table)
+\end{verbatim}
+\end{Usage}
+%
+\begin{Arguments}
+\begin{ldescription}
+\item[\code{wrds}] WRDS connection object from \code{wrds\_connect} function.
+
+\item[\code{schema}] Character. WRDS schema from \code{wrds\_schema\_list}.
+
+\item[\code{table}] Character. WRDS table from \code{wrds\_table\_list}.
+\end{ldescription}
+\end{Arguments}
+%
+\begin{Details}\relax
+NA.
+\end{Details}
+%
+\begin{Examples}
+\begin{ExampleCode}
+wrds = wrds_connect(username = "testing", password = "123456")
+variable_list = wrds_variable_list(wrds = wrds, schema = "compa", table = "funda")
+\end{ExampleCode}
+\end{Examples}
+\printindex{}
+\end{document}
