@@ -30,4 +30,5 @@ comp_linked = compustat_append_crsp_links(wrds = wrds, comp_df = compa_annual)
 comp_crsp_df = compustat_crsp_annual(wrds = wrds, begin_year = 2010, end_year = 2012)
 
 # Test Mergent functions
-mergent_issues_df = mergent_issues(wrds = wrds, clean = TRUE, subset = TRUE, dl = TRUE)
+mergent_issues_df = mergent_issues(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = TRUE)
+mergent_corps = mergent_corporates(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = TRUE)

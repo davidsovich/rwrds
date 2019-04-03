@@ -73,3 +73,42 @@ compustat_annual = function(wrds, begin_year, end_year, subset = TRUE) {
 }
 
 
+#' Download Compustat
+#'
+#' \code{compustat} downloads the annual or quarterly Compustat table.
+#'
+#' Downloads the annual or quarterly Compustat table. The table address is either compa.funda or
+#' compa.fundq. By default, the function downloads a subset of the variables. You can specify your
+#' own variable list by providing a string vector to the \code{vars} function. You can download all
+#' the variables by setting \code{vars} equal to 'all'.  By default, mergeos on industry
+#' information from the names table and removes duplicate gvkey fiscal quarter or
+#' fiscal year observations. The de-duping logic is to keep the observation with the fewest NA
+#' values. See function documentation for \code{compustat_annual} and \code{compustat_quarterly}.
+#'
+#' @export
+#'
+#' @param wrds WRDS connection object from \code{wrds_connect} function.
+#' @param begin_year Numeric.
+#' @param end_year Numeric.
+#' @param frequency Character. Input either 'annual' or 'quarterly'.
+#' @param vars Optional character. Defaults to a recommended subset of variables. Choose 'all' if
+#' you want to download all variables. Otherwise, provide a list of variables.
+#' @examples
+#' wrds = wrds_connect(username = "testing", password = "123456")
+#' compa_df = compustat(wrds = wrds, begin_year = 2010, end_year = 2012, frequency = 'annual', vars = c('gvkey','fyear', 'revt'))
+compustat = function(wrds, begin_year, end_year, frequency, vars = "default") {
+  if(missing(frequency)) {
+    stop("Error! Must choose either 'annual' or 'quarterly' frequency.")
+  }
+  if(!(frequency %in% c("annual", "quarterly"))) {
+    stop("Error! Must choose either 'annual' or 'quarterly' frequency.")
+  }
+  if(frequency == "annual") {
+    compustat_annual(wrds = wrds, begin_year = begin_year, end_year = end_year, vars = vars)
+  } else {
+    compustat_quarterly(wrds = wrds, begin_year = begin_year, end_year = end_year, vars = vars)
+  }
+}
+
+
+
