@@ -243,6 +243,85 @@ mergent_add_indu_codes = function(mergent_df, merging_industry_code = "industry_
     dplyr::select(-dplyr::one_of("abcd12345"))
 }
 
+# Mergent historical amount outstanding file (starts in 1995 per documentation) at annual frequency
+mergent_historical_ao = function(wrds, dl = FALSE) {
+  mergent_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_amt_out_hist")) %>%
+    dplyr::mutate(effective_year = date_part('year', effective_date)) %>%
+    # keep one observation per year, dplyr does not support distinct(, .keep_all = TRUE)
+    dplyr::arrange(issue_id, effective_year, effective_date) %>%
+    dplyr::group_by(issue_id, effective_year) %>%
+    dplyr::mutate(row_num = dplyr::row_number(),
+                  num_obs = dplyr::n()) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(row_num == num_obs) %>%
+    dplyr::select(-dplyr::one_of(c("row_num", "num_obs")))
+  if(dl == TRUE) {
+    mergent_df %>% collect()
+  } else {
+    mergent_df
+  }
+}
+
+# Tricking dplyr into pushing a year table up to the WRDS cloud
+year_table = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
+  year_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_issuer")) %>%
+    dplyr::mutate(year = dplyr::row_number()+(begin_year-1),
+                  merge_dummy = 1) %>%
+    dplyr::filter(year >= begin_year,
+                  year <= end_year) %>%
+    dplyr::select(year, merge_dummy)
+  if(dl == TRUE) {
+    year_df %>% dplyr::collect()
+  } else {
+    year_df
+  }
+}
+
+# Mergent year-by-year issue amount outstanding (issue_id == 1 to test)
+mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
+  mergent_df = mergent_issues(wrds = wrds, clean = FALSE, vanilla = FALSE, dl = FALSE) %>%
+    dplyr::filter(offering_amt > 0,
+                  !is.na(maturity_year),
+                  !is.na(offering_year),
+                  maturity_year >= begin_year,
+                  offering_year <= end_year) %>%
+    dplyr::select(issue_id, offering_year, maturity_year, offering_amt) %>%
+    dplyr::mutate(merge_dummy = 1) %>%
+    dplyr::left_join(y = year_table(wrds = wrds, begin_year = begin_year, end_year = end_year),
+                     by = c("merge_dummy" = "merge_dummy")) %>%
+    dplyr::select(issue_id, year, offering_year, maturity_year, offering_amt) %>%
+    dplyr::filter(year <= maturity_year) %>%
+    dplyr::left_join(y = mergent_historical_ao(wrds = wrds, dl = FALSE) %>%
+                       dplyr::select(issue_id, effective_year, amount_outstanding),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::filter((is.na(effective_year) | effective_year <= year)) %>%
+    dplyr::mutate(dist_effective = year - effective_year) %>%
+    dplyr::group_by(issue_id, year) %>%
+    dplyr::mutate(min_dist = min(dist_effective, na.rm = TRUE)) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter((is.na(min_dist) | dist_effective == min_dist)) %>%
+    dplyr::mutate(estimated_amount_outstanding = dplyr::case_when(
+      !is.na(amount_outstanding) ~ amount_outstanding,
+      TRUE                       ~ offering_amt)) %>%
+    dplyr::select(issue_id, year, offering_year, maturity_year,
+                  estimated_amount_outstanding, offering_amt, amount_outstanding) %>%
+    dplyr::rename(table_amount_outstanding = amount_outstanding) %>%
+    dplyr::mutate(flag_zero_ao = ifelse(estimated_amount_outstanding == 0, 1, 0))
+  if(dl == TRUE) {
+    mergent_df %>% dplyr::collect()
+  } else {
+    mergent_df
+  }
+}
+
+
+
+# Mergent high-level issuerid summary table
+mergent_issuerid_summary = function(wrds) {
+  issuer_df = mergent_agent(wrds = wrds, dl = FALSE)
+
+}
+
 
 
 

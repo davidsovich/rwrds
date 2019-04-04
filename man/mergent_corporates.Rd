@@ -36,7 +36,8 @@ issuers, foreign currency notes, private placements, perpetuals, preferred secur
 retail notes, slobs, exchangeables, unit deals, pay-in-kinds, defeased bonds, and bonds with
 non-strictly positive offering amounts and missing coupon types, issue ids, maturity, and
 offering date. By default, also merges on initial credit ratings for the issue and makes
-simple variable transformations.
+simple variable transformations. Resticts to SEN, SENS, SUB, oR SS on campital structure,
+although this is mostly without loss of generality (JUN, JUNS, NON comprise only 150 issues)
 }
 \examples{
 wrds = wrds_connect(username = "testing", password = "123456")

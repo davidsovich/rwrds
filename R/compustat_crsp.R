@@ -100,6 +100,3 @@ compustat_crsp_annual = function(wrds, begin_year, end_year, subset = TRUE) {
 
 
 
-
-
-

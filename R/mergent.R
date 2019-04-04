@@ -114,7 +114,8 @@ mergent_issues = function(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl 
 #' retail notes, slobs, exchangeables, unit deals, pay-in-kinds, defeased bonds, and bonds with
 #' non-strictly positive offering amounts and missing coupon types, issue ids, maturity, and
 #' offering date. By default, also merges on initial credit ratings for the issue and makes
-#' simple variable transformations.
+#' simple variable transformations. Resticts to SEN, SENS, SUB, oR SS on campital structure,
+#' although this is mostly without loss of generality (JUN, JUNS, NON comprise only 150 issues)
 #'
 #' @export
 #'
@@ -144,6 +145,110 @@ mergent_corporates = function(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE,
     mergent_df
   }
 }
+
+
+#' Mergent yearly amount outstanding panel
+#'
+#' \code{mergent_yearly_ao} constructs a issue-year panel of amount outstandings.
+#'
+#' Combines the Mergent issue table with the Mergent historical amount outstanding panel to
+#' create a year-by-year summary of each issue's amount outstanding inclusive of bond event
+#' (e.g., calling the bond). Includes yearly entries for issues only if their maturity is
+#' less than the year of interest and their offering date is at least the year of interest.
+#' Flags issue-year observations whenever there is zero estimated amount oustanding (e.g., the
+#' bond has been called) but does not remove the observations. Construction is memory intensive
+#' (several one-to-many merges) and requires support from the WRDS cloud. Constructs panel for
+#' all bond issues and does not filter on any fields except positive initial amount oustanding
+#' and non-missing maturity and offering years.
+#'
+#' @export
+#'
+#' @param wrds WRDS connection object from \code{wrds_connect} function.
+#' @param begin_year Numeric. Default is 1995 (first year of updates to amount outstanding table).
+#' @param end_year Numeric. Default is 2019.
+#' @param dl Optional Boolean. Download the data? Defaults to \code{FALSE}.
+#' @examples
+#' wrds = wrds_connect(username = "testing", password = "123456")
+#' mergent_ao_panel = mergent_yearly_ao(wrds, begin_year = 1995, end_year = 2019, dl = TRUE)
+#' table(mergent_ao_panel$year)
+#'
+mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
+  mergent_df = mergent_issues(wrds = wrds, clean = FALSE, vanilla = FALSE, dl = FALSE) %>%
+    dplyr::filter(offering_amt > 0,
+                  !is.na(maturity_year),
+                  !is.na(offering_year),
+                  maturity_year >= begin_year,
+                  offering_year <= end_year) %>%
+    dplyr::select(issue_id, offering_year, maturity_year, offering_amt) %>%
+    dplyr::mutate(merge_dummy = 1) %>%
+    dplyr::left_join(y = year_table(wrds = wrds, begin_year = begin_year, end_year = end_year),
+                     by = c("merge_dummy" = "merge_dummy")) %>%
+    dplyr::select(issue_id, year, offering_year, maturity_year, offering_amt) %>%
+    dplyr::filter(year <= maturity_year) %>%
+    dplyr::left_join(y = mergent_historical_ao(wrds = wrds, dl = FALSE) %>%
+                       dplyr::select(issue_id, effective_year, amount_outstanding),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::filter((is.na(effective_year) | effective_year <= year)) %>%
+    dplyr::mutate(dist_effective = year - effective_year) %>%
+    dplyr::group_by(issue_id, year) %>%
+    dplyr::mutate(min_dist = min(dist_effective, na.rm = TRUE)) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter((is.na(min_dist) | dist_effective == min_dist)) %>%
+    dplyr::mutate(estimated_amount_outstanding = dplyr::case_when(
+      !is.na(amount_outstanding) ~ amount_outstanding,
+      TRUE                       ~ offering_amt)) %>%
+    dplyr::select(issue_id, year, offering_year, maturity_year,
+                  estimated_amount_outstanding, offering_amt, amount_outstanding) %>%
+    dplyr::rename(table_amount_outstanding = amount_outstanding) %>%
+    dplyr::mutate(flag_zero_ao = ifelse(estimated_amount_outstanding == 0, 1, 0))
+  if(dl == TRUE) {
+    mergent_df %>% dplyr::collect()
+  } else {
+    mergent_df
+  }
+}
+
+
+mergent_corporates_panel = function(wrds, clean = TRUE, vanilla = TRUE, dl = TRUE) {
+  issuers_df = mergent_agent(wrds = wrds, dl = FALSE)
+  mergent_df = mergent_corporates(wrds = wrds, clean = clean, vanilla = vanilla, dl = FALSE) %>%
+    dplyr::filter(!is.na(offering_year),
+                  !is.na(issuer_id),
+                  offering_amt > 0)
+
+  a = mergent_df %>%
+    dplyr::group_by(issuer_id) %>%
+    dplyr::summarise(min_offering_year = min(offering_year, na.rm = TRUE),
+                     max_offering_year = max(offering_year, na.rm = TRUE))
+
+  # Download the amoutn outstanding
+
+
+    dplyr::summarise(min_offering_year =1)
+
+    dplyr::summarise(amount_issued = sum(offering_amt))
+
+
+  mergent_df = mergent_agent(wrds = wrds, dl = FALSE) %>%
+    dplyr::filter(!(industry_gropu %in% c(4, 5)))
+
+
+  agent_df = mergent_agent(wrds, dl = TRUE)
+
+
+}
+
+# Construct annual summary of issuerid requires knowing when bonds EXPIRE
+mergent_panel = function( aggregaation = c("issuer_id", "permno", "gvkey")) {
+
+
+
+}
+
+
+
+
+
 
 
 
