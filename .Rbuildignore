@@ -1,3 +1,5 @@
+^dropboxdata$
+^manual\.pdf$
 ^README\.md$
 ^\.gitignore$
 ^\.git$
