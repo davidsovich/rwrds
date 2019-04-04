@@ -32,4 +32,4 @@ comp_crsp_df = compustat_crsp_annual(wrds = wrds, begin_year = 2010, end_year = 
 # Test Mergent functions
 mergent_issues_df = mergent_issues(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = TRUE)
 mergent_corps = mergent_corporates(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = TRUE)
-mergent_ao_panel = mergent_yearly_ao(wrds, begin_year = 1995, end_year = 2019, dl = TRUE)
+mergent_ao_panel = mergent_yearly_ao(wrds, begin_year = 1989, end_year = 1995, dl = TRUE)

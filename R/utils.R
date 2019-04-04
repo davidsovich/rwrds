@@ -254,7 +254,10 @@ mergent_historical_ao = function(wrds, dl = FALSE) {
                   num_obs = dplyr::n()) %>%
     dplyr::ungroup() %>%
     dplyr::filter(row_num == num_obs) %>%
-    dplyr::select(-dplyr::one_of(c("row_num", "num_obs")))
+    dplyr::select(-dplyr::one_of(c("row_num", "num_obs"))) %>%
+    dplyr::group_by(issue_id) %>%
+    dplyr::mutate(min_effective_year = min(effective_year, na.rm = TRUE)) %>%
+    dplyr::ungroup()
   if(dl == TRUE) {
     mergent_df %>% collect()
   } else {
@@ -277,42 +280,6 @@ year_table = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
   }
 }
 
-# Mergent year-by-year issue amount outstanding (issue_id == 1 to test)
-mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
-  mergent_df = mergent_issues(wrds = wrds, clean = FALSE, vanilla = FALSE, dl = FALSE) %>%
-    dplyr::filter(offering_amt > 0,
-                  !is.na(maturity_year),
-                  !is.na(offering_year),
-                  maturity_year >= begin_year,
-                  offering_year <= end_year) %>%
-    dplyr::select(issue_id, offering_year, maturity_year, offering_amt) %>%
-    dplyr::mutate(merge_dummy = 1) %>%
-    dplyr::left_join(y = year_table(wrds = wrds, begin_year = begin_year, end_year = end_year),
-                     by = c("merge_dummy" = "merge_dummy")) %>%
-    dplyr::select(issue_id, year, offering_year, maturity_year, offering_amt) %>%
-    dplyr::filter(year <= maturity_year) %>%
-    dplyr::left_join(y = mergent_historical_ao(wrds = wrds, dl = FALSE) %>%
-                       dplyr::select(issue_id, effective_year, amount_outstanding),
-                     by = c("issue_id" = "issue_id")) %>%
-    dplyr::filter((is.na(effective_year) | effective_year <= year)) %>%
-    dplyr::mutate(dist_effective = year - effective_year) %>%
-    dplyr::group_by(issue_id, year) %>%
-    dplyr::mutate(min_dist = min(dist_effective, na.rm = TRUE)) %>%
-    dplyr::ungroup() %>%
-    dplyr::filter((is.na(min_dist) | dist_effective == min_dist)) %>%
-    dplyr::mutate(estimated_amount_outstanding = dplyr::case_when(
-      !is.na(amount_outstanding) ~ amount_outstanding,
-      TRUE                       ~ offering_amt)) %>%
-    dplyr::select(issue_id, year, offering_year, maturity_year,
-                  estimated_amount_outstanding, offering_amt, amount_outstanding) %>%
-    dplyr::rename(table_amount_outstanding = amount_outstanding) %>%
-    dplyr::mutate(flag_zero_ao = ifelse(estimated_amount_outstanding == 0, 1, 0))
-  if(dl == TRUE) {
-    mergent_df %>% dplyr::collect()
-  } else {
-    mergent_df
-  }
-}
 
 
 

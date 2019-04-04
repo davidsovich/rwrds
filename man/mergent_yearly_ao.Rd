@@ -17,8 +17,7 @@ mergent_yearly_ao(wrds, begin_year = 1995, end_year = 2019,
 \item{dl}{Optional Boolean. Download the data? Defaults to \code{FALSE}.}
 }
 \description{
-\code{mergent_corporates} combines the Mergent issue table with the Mergent historical
-amount outstanding
+\code{mergent_yearly_ao} constructs a issue-year panel of amount outstandings.
 }
 \details{
 Combines the Mergent issue table with the Mergent historical amount outstanding panel to
@@ -29,9 +28,11 @@ Flags issue-year observations whenever there is zero estimated amount oustanding
 bond has been called) but does not remove the observations. Construction is memory intensive
 (several one-to-many merges) and requires support from the WRDS cloud. Constructs panel for
 all bond issues and does not filter on any fields except positive initial amount oustanding
-and non-missing maturity and offering years.
+and non-missing maturity and offering years. Run-time is fast if WRDS cloud is leveraged.
 }
 \examples{
 wrds = wrds_connect(username = "testing", password = "123456")
 mergent_ao_panel = mergent_yearly_ao(wrds, begin_year = 1995, end_year = 2019, dl = TRUE)
+table(mergent_ao_panel$year)
+head(mergent_ao_panel \%>\% filter(issue_id == 1) \%>\% data.frame())
 }
