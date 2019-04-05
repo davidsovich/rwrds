@@ -209,7 +209,6 @@ mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALS
     dplyr::mutate(flag_zero_ao = ifelse(estimated_amount_outstanding == 0, 1, 0),
                   flag_new_issue_year = ifelse(year == offering_year, 1, 0),
                   flag_maturity_year = ifelse(year == maturity_year, 1, 0))
-  head(mergent_ao_panel %>% data.frame(), 10)
   if(dl == TRUE) {
     mergent_df %>% dplyr::collect()
   } else {
@@ -217,64 +216,92 @@ mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALS
   }
 }
 
-mergent_issuer_panel = function(wrds) {
+# There are gaps in this panel below: Do you want to cartesian the space up? Need to download
+# intermitently to add on the ratings numbers (and it slows down for some reason).
 
-  # Download the yearly AO panel
-
-  # Calculate AO each year for the bonds
-
-  # Merge on the offering yields and clculate
-
-  # Remove retial notes BLAH
-
-
-  # Calculate number of new issues each year
-
-  # Total amount outstanding each year
-
-  #
-
+mergent_issuer_panel = function(wrds, begin_year, end_year, corps_only = FALSE, clean = FALSE,
+                                vanilla = FALSE, min_offering_amt = 1) {
+  ao_df = mergent_yearly_ao(wrds=wrds, begin_year=begin_year, end_year=end_year, dl=TRUE) %>%
+    dplyr::filter(offering_amt >= min_offering_amt)
+  if(corps_only == TRUE) {
+    temp_df = mergent_corporates(wrds = wrds, clean = clean, vanilla = vanilla, dl = TRUE)
+  } else {
+    temp_df = mergent_issues(wrds = wrds, clean = clean, vanilla = vanilla, dl = TRUE)
+  }
+  temp_df = temp_df %>%
+    mergent_add_ratings_no(sp_col_name = "sp_initial_rating",
+                           moodys_col_name = "moodys_initial_rating",
+                           fitch_col_name = "fitch_initial_rating",
+                           sp_name = "new_sp_rating_num",
+                           fitch_name = "new_fitch_rating_num",
+                           moodys_name = "new_moodys_rating_num") %>%
+    dplyr::select(issue_id, issuer_id, coupon, maturity_length, has_options_flag,
+                  offering_yield, treasury_spread, offering_price,
+                  new_sp_rating_num, new_moodys_rating_num, new_fitch_rating_num) %>%
+    dplyr::mutate(sp_new_ig = ifelse(is.na(new_sp_rating_num), NA,
+                                 ifelse(new_sp_rating_num <= 10, 1, 0)),
+                  m_new_ig = ifelse(is.na(new_moodys_rating_num), NA,
+                                ifelse(new_moodys_rating_num <= 10, 1, 0)),
+                  f_new_ig = ifelse(is.na(new_fitch_rating_num), NA,
+                                ifelse(new_fitch_rating_num <= 10, 1, 0)))
+  ao_df = ao_df %>%
+    dplyr::inner_join(y = temp_df,
+                      by = c("issue_id" = "issue_id", "issuer_id" = "issuer_id"))
+  ao_df = ao_df %>%
+    dplyr::filter(flag_zero_ao == 0) %>%
+    dplyr::mutate(maturity_left = maturity_year - year) %>%
+    dplyr::group_by(issuer_id, year) %>%
+    dplyr::summarise(num_bonds = dplyr::n(),
+                     amount_oustanding = sum(estimated_amount_outstanding, na.rm = TRUE),
+                     wavg_coupon = weighted.mean(coupon,
+                                                 estimated_amount_outstanding, na.rm = TRUE),
+                     wavg_mat_left = weighted.mean(maturity_left,
+                                                   estimated_amount_outstanding, na.rm = TRUE),
+                     num_maturing_bonds = sum(flag_maturity_year, na.rm = TRUE),
+                     amount_maturing_bonds = sum(flag_maturity_year*estimated_amount_outstanding,
+                                                 na.rm = TRUE),
+                     num_new_bonds = sum(flag_new_issue_year, na.rm = TRUE),
+                     amount_new_bonds = sum(flag_new_issue_year*offering_amt, na.rm = TRUE),
+                     wavg_coupon_new_bonds = weighted.mean(coupon*flag_new_issue_year,
+                                                           offering_amt*flag_new_issue_year,
+                                                           na.rm = TRUE),
+                     wavg_mat_new_bonds = weighted.mean(maturity_length*flag_new_issue_year,
+                                                        maturity_length*flag_new_issue_year,
+                                                        na.rm = TRUE),
+                     wavg_yield_new_bonds = weighted.mean(offering_yield*flag_new_issue_year,
+                                                          offering_yield*flag_new_issue_year,
+                                                          na.rm = TRUE),
+                     wavg_price_new_bonds = weighted.mean(offering_price*flag_new_issue_year,
+                                                          offering_price*flag_new_issue_year,
+                                                          na.rm = TRUE),
+                     wavg_sp_new_bonds = weighted.mean(new_sp_rating_num*flag_new_issue_year,
+                                                       new_sp_rating_num*flag_new_issue_year,
+                                                       na.rm = TRUE),
+                     wavg_moodys_new_bonds = weighted.mean(new_moodys_rating_num*flag_new_issue_year,
+                                                           new_moodys_rating_num*flag_new_issue_year,
+                                                           na.rm = TRUE),
+                     wavg_fitch_new_bonds = weighted.mean(new_fitch_rating_num*flag_new_issue_year,
+                                                          new_fitch_rating_num*flag_new_issue_year,
+                                                          na.rm = TRUE),
+                     sp_ig_new_bonds = sum(sp_new_ig*flag_new_issue_year, na.rm = TRUE),
+                     moodys_ig_new_bonds = sum(m_new_ig*flag_new_issue_year, na.rm = TRUE),
+                     fitch_ig_new_bonds = sum(f_new_ig*flag_new_issue_year, na.rm = TRUE)) %>%
+    dplyr::mutate(wavg_coupon_new_bonds = ifelse(is.nan(wavg_coupon_new_bonds),
+                                                 NA, wavg_coupon_new_bonds),
+                  wavg_mat_new_bonds = ifelse(is.nan(wavg_mat_new_bonds),
+                                                 NA, wavg_mat_new_bonds),
+                  wavg_yield_new_bonds = ifelse(is.nan(wavg_yield_new_bonds),
+                                                 NA, wavg_yield_new_bonds),
+                  wavg_price_new_bonds = ifelse(is.nan(wavg_price_new_bonds),
+                                                 NA, wavg_price_new_bonds),
+                  wavg_sp_new_bonds = ifelse(is.nan(wavg_sp_new_bonds),
+                                                 NA, wavg_sp_new_bonds),
+                  wavg_moodys_new_bonds = ifelse(is.nan(wavg_moodys_new_bonds),
+                                                 NA, wavg_moodys_new_bonds),
+                  wavg_fitch_new_bonds = ifelse(is.nan(wavg_fitch_new_bonds),
+                                                 NA, wavg_fitch_new_bonds))
+  ao_df
 }
-
-
-
-
-mergent_corporates_panel = function(wrds, clean = TRUE, vanilla = TRUE, dl = TRUE) {
-  issuers_df = mergent_agent(wrds = wrds, dl = FALSE)
-  mergent_df = mergent_corporates(wrds = wrds, clean = clean, vanilla = vanilla, dl = FALSE) %>%
-    dplyr::filter(!is.na(offering_year),
-                  !is.na(issuer_id),
-                  offering_amt > 0)
-
-  a = mergent_df %>%
-    dplyr::group_by(issuer_id) %>%
-    dplyr::summarise(min_offering_year = min(offering_year, na.rm = TRUE),
-                     max_offering_year = max(offering_year, na.rm = TRUE))
-
-  # Download the amoutn outstanding
-
-
-    dplyr::summarise(min_offering_year =1)
-
-    dplyr::summarise(amount_issued = sum(offering_amt))
-
-
-  mergent_df = mergent_agent(wrds = wrds, dl = FALSE) %>%
-    dplyr::filter(!(industry_gropu %in% c(4, 5)))
-
-
-  agent_df = mergent_agent(wrds, dl = TRUE)
-
-
-}
-
-# Construct annual summary of issuerid requires knowing when bonds EXPIRE
-mergent_panel = function( aggregaation = c("issuer_id", "permno", "gvkey")) {
-
-
-
-}
-
 
 
 
