@@ -216,6 +216,95 @@ mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALS
   }
 }
 
+#' Mergent yearly credit ratings
+#'
+#' \code{mergent_yearly_ao} constructs an issue-year panel of S&P, Moodys, and Fitch ratings.
+#'
+#' Constructs a year-by-year account of issue-level credit ratings from the Mergent issues table
+#' and the historical credit ratings table. Considers only credit ratings from S&P, Moodys, and
+#' Fitch. Only keeps issue observations between the offering and maturity date. Does not remove
+#' a bond if the entire issue is called. Only filter applied is offering amounts above zero.
+#' Assigns a numeric rating to each agency's letter rating. Lower numeric ratings signal higher
+#' perceived credit quality; numeric ratings at-or-below 10 are considered investment grade.
+#' Ratings are on a scale of 1 (highest perceived quality) to 22 (lowest perceived quality).
+#' The following items are worth noting: (1) issues that are not rated by an agency are assigned
+#' a rating of 'NR' for that agency and a numeric code of 23, (2) the Mergent database states that
+#' the ratings data is only supported after 1995, despite there being pre-1995 ratings in the data.
+#'
+#' @export
+#'
+#' @param wrds WRDS connection object from \code{wrds_connect} function.
+#' @param begin_year Numeric. Default is 1995 (first year of updates to amount outstanding table).
+#' @param end_year Numeric. Default is 2019.
+#' @param dl Optional Boolean. Download the data? Defaults to \code{FALSE}.
+#' @examples
+#' wrds = wrds_connect(username = "testing", password = "123456")
+#' mergent_ratings_panel = mergent_yearly_ratings(wrds, begin_year = 1995, end_year = 2000,
+#' dl = TRUE)
+#' table(mergent_ratings_panel$year)
+#' head(mergent_ratings_panel %>% filter(issue_id == 1) %>% data.frame())
+mergent_yearly_ratings = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
+  rating_df = mergent_issues(wrds = wrds, clean = FALSE, vanilla = FALSE, dl = FALSE) %>%
+    dplyr::filter(offering_amt > 0,
+                  !is.na(maturity_year),
+                  !is.na(offering_year),
+                  maturity_year >= begin_year,
+                  offering_year <= end_year) %>%
+    dplyr::select(issue_id, issuer_id, offering_year, maturity_year) %>%
+    dplyr::mutate(merge_dummy = 1) %>%
+    dplyr::left_join(y = year_table(wrds = wrds, begin_year = begin_year, end_year = end_year),
+                     by = c("merge_dummy" = "merge_dummy")) %>%
+    dplyr::filter(year <= maturity_year, year >= offering_year) %>%
+    # SP ratings (>= and < join - not explictly supported by dplyr)
+    dplyr::left_join(y = sp_historical_ratings(wrds, dl = FALSE) %>%
+                       dplyr::select(issue_id, rating_year, sp_rating, sp_num_rating),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::mutate(dist_effective = dplyr::case_when(
+      is.na(rating_year) ~ 100,
+      year < rating_year ~ 100 + (rating_year - year),
+      TRUE               ~ year - rating_year)) %>%
+    dplyr::group_by(issue_id, year) %>%
+    dplyr::filter(dist_effective == min(dist_effective, na.rm = TRUE)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(sp_rating = ifelse(year < rating_year, "NR", sp_rating),
+                  sp_num_rating = ifelse(year < rating_year, 23, sp_num_rating)) %>%
+    dplyr::select(-one_of("merge_dummy", "rating_year", "dist_effective")) %>%
+    # M ratings (>= and < join - not explictly supported by dplyr)
+    dplyr::left_join(y = moodys_historical_ratings(wrds, dl = FALSE) %>%
+                       dplyr::select(issue_id, rating_year, moodys_rating, moodys_num_rating),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::mutate(dist_effective = dplyr::case_when(
+      is.na(rating_year) ~ 100,
+      year < rating_year ~ 100 + (rating_year - year),
+      TRUE               ~ year - rating_year)) %>%
+    dplyr::group_by(issue_id, year) %>%
+    dplyr::filter(dist_effective == min(dist_effective, na.rm = TRUE)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(moodys_rating = ifelse(year < rating_year, "NR", moodys_rating),
+                  moodys_num_rating = ifelse(year < rating_year, 23, moodys_num_rating)) %>%
+    dplyr::select(-one_of("rating_year", "dist_effective")) %>%
+    # F ratings (>= and < join - not explictly supported by dplyr)
+    dplyr::left_join(y = fitch_historical_ratings(wrds, dl = FALSE) %>%
+                       dplyr::select(issue_id, rating_year, fitch_rating, fitch_num_rating),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::mutate(dist_effective = dplyr::case_when(
+      is.na(rating_year) ~ 100,
+      year < rating_year ~ 100 + (rating_year - year),
+      TRUE               ~ year - rating_year)) %>%
+    dplyr::group_by(issue_id, year) %>%
+    dplyr::filter(dist_effective == min(dist_effective, na.rm = TRUE)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(fitch_rating = ifelse(year < rating_year, "NR", fitch_rating),
+                  fitch_num_rating = ifelse(year < rating_year, 23, fitch_num_rating)) %>%
+    dplyr::select(-one_of("rating_year", "dist_effective"))
+  if(dl == TRUE) {
+    rating_df %>% dplyr::collect()
+  } else {
+    rating_df
+  }
+}
+
+
 # There are gaps in this panel below: Do you want to cartesian the space up? Need to download
 # intermitently to add on the ratings numbers (and it slows down for some reason).
 

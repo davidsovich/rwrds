@@ -265,6 +265,97 @@ mergent_historical_ao = function(wrds, dl = FALSE) {
   }
 }
 
+# Mergent historical ratings table
+mergent_historical_ratings = function(wrds, dl = FALSE) {
+  rating_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_ratings")) %>%
+    dplyr::filter(rating_type %in% c("MR", "FR", "SPR"),
+                  !(rating %in% c("0", "Aa", "Ba", "Baa", "B+(EXP)", "Caa", "DD",
+                                  "DDD", "NAV", "P-1", "SUSP"))) %>%
+    dplyr::mutate(year = date_part('year', rating_date),
+                  month = date_part('month', rating_date)) %>%
+    dplyr::select(issue_id, rating_type, rating_date, year, month, rating) %>%
+    dplyr::mutate(num_rating = dplyr::case_when(
+      rating %in% c("Aaa", "AAA") ~ 1,
+      rating %in% c("Aa1", "AA+") ~ 2,
+      rating %in% c("Aa2", "AA") ~ 3,
+      rating %in% c("Aa3", "AA-") ~ 4,
+      rating %in% c("A1", "A+") ~ 5,
+      rating %in% c("A2", "A") ~ 6,
+      rating %in% c("A3", "A-") ~ 7,
+      rating %in% c("Baa1", "BBB+") ~ 8,
+      rating %in% c("Baa2", "BBB") ~ 9,
+      rating %in% c("Baa3", "BBB-") ~ 10,
+      rating %in% c("Ba1", "BB+") ~ 11,
+      rating %in% c("Ba2", "BB") ~ 12,
+      rating %in% c("Ba3", "BB-") ~ 13,
+      rating %in% c("B1", "B+") ~ 14,
+      rating %in% c("B2", "B") ~ 15,
+      rating %in% c("B3", "B-") ~ 16,
+      rating %in% c("Caa1", "CCC+") ~ 17,
+      rating %in% c("Caa2", "CCC") ~ 18,
+      rating %in% c("Caa3", "CCC-") ~ 19,
+      rating %in% c("Ca", "CC") ~ 20,
+      rating %in% c("C") ~ 21,
+      rating %in% c("D") ~ 22,
+      rating %in% c("NR") ~ 23,
+      TRUE ~ NA)) %>%
+    dplyr::mutate(inv_grade = ifelse(num_rating <= 10, 1, 0)) %>%
+    # dplyr does not allow for distinct(, .keep_all = TRUE) so group_by
+    dplyr::arrange(issue_id, rating_type, year, dplyr::desc(rating_date)) %>%
+    dplyr::group_by(issue_id, rating_type, year) %>%
+    dplyr::mutate(row_num = dplyr::row_number()) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(row_num == 1) %>%
+    dplyr::select(-dplyr::one_of("row_num")) %>%
+    dplyr::rename(rating_year = year)
+  if(dl == TRUE) {
+    rating_df %>% dplyr::collect()
+  } else {
+    rating_df
+  }
+}
+
+# Class by class ratings
+sp_historical_ratings = function(wrds, dl = FALSE) {
+  sp_df = mergent_historical_ratings(wrds, dl = FALSE) %>%
+    dplyr::filter(rating_type == "SPR") %>%
+    dplyr::select(issue_id, rating_year, rating, num_rating, inv_grade) %>%
+    dplyr::rename(sp_rating = rating,
+                  sp_num_rating = num_rating,
+                  sp_inv_grade = inv_grade)
+  if(dl == TRUE) {
+    sp_df %>% dplyr::collect()
+  } else {
+    sp_df
+  }
+}
+moodys_historical_ratings = function(wrds, dl = FALSE) {
+  mr_df = mergent_historical_ratings(wrds, dl = FALSE) %>%
+    dplyr::filter(rating_type == "MR") %>%
+    dplyr::select(issue_id, rating_year, rating, num_rating, inv_grade) %>%
+    dplyr::rename(moodys_rating = rating,
+                  moodys_num_rating = num_rating,
+                  moodys_inv_grade = inv_grade)
+  if(dl == TRUE) {
+    mr_df %>% dplyr::collect()
+  } else {
+    mr_df
+  }
+}
+fitch_historical_ratings = function(wrds, dl = FALSE) {
+  fr_df = mergent_historical_ratings(wrds, dl = FALSE) %>%
+    dplyr::filter(rating_type == "FR") %>%
+    dplyr::select(issue_id, rating_year, rating, num_rating, inv_grade) %>%
+    dplyr::rename(fitch_rating = rating,
+                  fitch_num_rating = num_rating,
+                  fitch_inv_grade = inv_grade)
+  if(dl == TRUE) {
+    fr_df %>% dplyr::collect()
+  } else {
+    fr_df
+  }
+}
+
 # Tricking dplyr into pushing a year table up to the WRDS cloud
 year_table = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
   year_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_issuer")) %>%
@@ -280,14 +371,6 @@ year_table = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
   }
 }
 
-
-
-
-# Mergent high-level issuerid summary table
-mergent_issuerid_summary = function(wrds) {
-  issuer_df = mergent_agent(wrds = wrds, dl = FALSE)
-
-}
 
 
 
