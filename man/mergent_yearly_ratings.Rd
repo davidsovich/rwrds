@@ -4,12 +4,13 @@
 \alias{mergent_yearly_ratings}
 \title{Mergent yearly credit ratings}
 \usage{
-mergent_yearly_ratings(wrds, begin_year, end_year, dl = FALSE)
+mergent_yearly_ratings(wrds, begin_year = 1995, end_year = 2019,
+  dl = FALSE)
 }
 \arguments{
 \item{wrds}{WRDS connection object from \code{wrds_connect} function.}
 
-\item{begin_year}{Numeric. Default is 1995 (first year of updates to amount outstanding table).}
+\item{begin_year}{Numeric. Default is 1995 (first year of updates to ratings table).}
 
 \item{end_year}{Numeric. Default is 2019.}
 
@@ -32,7 +33,8 @@ the ratings data is only supported after 1995, despite there being pre-1995 rati
 }
 \examples{
 wrds = wrds_connect(username = "testing", password = "123456")
-mergent_ao_panel = mergent_yearly_ao(wrds, begin_year = 1995, end_year = 2019, dl = TRUE)
-table(mergent_ao_panel$year)
-head(mergent_ao_panel \%>\% filter(issue_id == 1) \%>\% data.frame())
+mergent_ratings_panel = mergent_yearly_ratings(wrds, begin_year = 1995, end_year = 2000,
+dl = TRUE)
+table(mergent_ratings_panel$year)
+head(mergent_ratings_panel \%>\% filter(issue_id == 1) \%>\% data.frame())
 }

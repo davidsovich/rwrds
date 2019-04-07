@@ -32,5 +32,17 @@ comp_crsp_df = compustat_crsp_annual(wrds = wrds, begin_year = 2010, end_year = 
 # Test Mergent functions
 mergent_issues_df = mergent_issues(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = TRUE)
 mergent_corps = mergent_corporates(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl = TRUE)
+mergent_ao_panel = deprecated_mergent_yearly_ao(wrds, begin_year = 1989, end_year = 1995, dl = TRUE)
 mergent_ao_panel = mergent_yearly_ao(wrds, begin_year = 1989, end_year = 1995, dl = TRUE)
 mergent_ratings_panel = mergent_yearly_ratings(wrds, begin_year = 1995, end_year = 2000, dl = TRUE)
+mergent_df = mergent_issuer_panel(wrds = wrds, begin_year = 2000, end_year = 2002,
+                                  corps_only = TRUE, clean = TRUE, vanilla = TRUE, min_offering_amt = 1000)
+
+
+# Mergent amount outstanding time tests
+system.time(mergent_yearly_ao(wrds, begin_year = 2000, end_year = 2008) %>%
+              summarise(n=n()) %>%
+              collect())
+system.time(deprecated_mergent_yearly_ao(wrds, begin_year = 2000, end_year = 2008) %>%
+              summarise(n=n()) %>%
+              collect())

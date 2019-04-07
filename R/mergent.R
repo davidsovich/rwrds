@@ -53,8 +53,26 @@ mergent_issues = function(wrds, clean = TRUE, vanilla = TRUE, subset = TRUE, dl 
                   foreign_domiciled_issuer_flag = ifelse(country_domicile != "USA", 1, 0),
                   has_options_flag = ifelse(convertible == "Y" | putable == "Y" |
                                             callable == "Y" | sinking_fund == "Y", 1, 0)) %>%
-    dplyr::left_join(y = mergent_initial_ratings(wrds, dl = FALSE),
+    dplyr::left_join(y = sp_initial_ratings(wrds = wrds, dl = FALSE, date_distance = 1) %>%
+                         dplyr::select(-rating_date),
                      by = c("issue_id" = "issue_id")) %>%
+    dplyr::left_join(y = moodys_initial_ratings(wrds = wrds, dl = FALSE, date_distance = 1) %>%
+                         dplyr::select(-rating_date),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::left_join(y = fitch_initial_ratings(wrds = wrds, dl = FALSE, date_distance = 1) %>%
+                         dplyr::select(-rating_date),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::mutate(sp_initial_rating = ifelse(is.na(sp_initial_rating), "NR", sp_initial_rating),
+                  sp_initial_num_rating = ifelse(is.na(sp_initial_num_rating),
+                                                 23, sp_initial_num_rating),
+                  moodys_initial_rating = ifelse(is.na(moodys_initial_rating),
+                                                 "NR", moodys_initial_rating),
+                  moodys_initial_num_rating = ifelse(is.na(moodys_initial_num_rating),
+                                                     23, moodys_initial_num_rating),
+                  fitch_initial_rating = ifelse(is.na(fitch_initial_rating),
+                                                "NR", fitch_initial_rating),
+                  fitch_initial_num_rating = ifelse(is.na(fitch_initial_num_rating),
+                                                    23, fitch_initial_num_rating)) %>%
     # dbplyr does not provide distinct(, .keep_all = TRUE) functionality
     dplyr::group_by(issue_id) %>%
     dplyr::mutate(row_num = dplyr::row_number()) %>%
@@ -216,6 +234,7 @@ mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALS
   }
 }
 
+
 #' Mergent yearly credit ratings
 #'
 #' \code{mergent_yearly_ao} constructs an issue-year panel of S&P, Moodys, and Fitch ratings.
@@ -234,7 +253,7 @@ mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALS
 #' @export
 #'
 #' @param wrds WRDS connection object from \code{wrds_connect} function.
-#' @param begin_year Numeric. Default is 1995 (first year of updates to amount outstanding table).
+#' @param begin_year Numeric. Default is 1995 (first year of updates to ratings table).
 #' @param end_year Numeric. Default is 2019.
 #' @param dl Optional Boolean. Download the data? Defaults to \code{FALSE}.
 #' @examples
@@ -246,6 +265,7 @@ mergent_yearly_ao = function(wrds, begin_year = 1995, end_year = 2019, dl = FALS
 mergent_yearly_ratings = function(wrds, begin_year = 1995, end_year = 2019, dl = FALSE) {
   rating_df = mergent_issues(wrds = wrds, clean = FALSE, vanilla = FALSE, dl = FALSE) %>%
     dplyr::filter(offering_amt > 0,
+                  offering_amt < 10000000,
                   !is.na(maturity_year),
                   !is.na(offering_year),
                   maturity_year >= begin_year,
@@ -305,92 +325,167 @@ mergent_yearly_ratings = function(wrds, begin_year = 1995, end_year = 2019, dl =
 }
 
 
-# There are gaps in this panel below: Do you want to cartesian the space up? Need to download
-# intermitently to add on the ratings numbers (and it slows down for some reason).
-
+#' Mergent issuer panel summary
+#'
+#' \code{mergent_issuer_panel} constructs a yearly panel of issuer-level bond summaries.
+#'
+#' Aggregates issue-level bond data on an annual basis to the issuer level on an annual basis.
+#' Summarizes several key features of each issuers bond issuance in each year, including
+#' the number of bonds currently outstanding, the distribution of bond sizes, the average
+#' bond ratings, the features of maturing bonds, and the features of newly issued bonds
+#' within the year.
+#'
+#' @export
+#'
+#' @param wrds WRDS connection object from \code{wrds_connect} function.
+#' @param begin_year Numeric.
+#' @param end_year Numeric.
+#' @param corps_only Boolean. Summarize corporate bonds only? Defaults to \code{FALSE}. If true,
+#' function uses the filters in \code{mergent_corporates}.
+#' @param clean Boolean. Restrict summary to bond issues with clean data? Clean is defined
+#' as in the function \code{mergent_issues}.
+#' @param vanilla Boolean. Restrict summary to vanilla bond issues only? Vanilla is defined
+#' as in the function \code{mergent_issues}.
+#' @param min_offering_amt Numeric. Mimum size (in thousands) for bonds to be included in the
+#' summary.
+#' @examples
+#' wrds = wrds_connect(username = "testing", password = "123456")
+#' mergent_df = mergent_issuer_panel(wrds = wrds, begin_year = 2000, end_year = 2002,
+#' corps_only = TRUE, clean = TRUE, vanilla = TRUE, min_offering_amt = 1000)
 mergent_issuer_panel = function(wrds, begin_year, end_year, corps_only = FALSE, clean = FALSE,
                                 vanilla = FALSE, min_offering_amt = 1) {
-  ao_df = mergent_yearly_ao(wrds=wrds, begin_year=begin_year, end_year=end_year, dl=TRUE) %>%
-    dplyr::filter(offering_amt >= min_offering_amt)
+  ao_df = mergent_yearly_ao(wrds = wrds,
+                            begin_year = begin_year,
+                            end_year = end_year,
+                            dl = TRUE) %>%
+    dplyr::filter(flag_zero_ao == 0) %>%
+    dplyr::mutate(maturity_left = maturity_year - year)
   if(corps_only == TRUE) {
     temp_df = mergent_corporates(wrds = wrds, clean = clean, vanilla = vanilla, dl = TRUE)
   } else {
     temp_df = mergent_issues(wrds = wrds, clean = clean, vanilla = vanilla, dl = TRUE)
   }
-  temp_df = temp_df %>%
-    mergent_add_ratings_no(sp_col_name = "sp_initial_rating",
-                           moodys_col_name = "moodys_initial_rating",
-                           fitch_col_name = "fitch_initial_rating",
-                           sp_name = "new_sp_rating_num",
-                           fitch_name = "new_fitch_rating_num",
-                           moodys_name = "new_moodys_rating_num") %>%
-    dplyr::select(issue_id, issuer_id, coupon, maturity_length, has_options_flag,
-                  offering_yield, treasury_spread, offering_price,
-                  new_sp_rating_num, new_moodys_rating_num, new_fitch_rating_num) %>%
-    dplyr::mutate(sp_new_ig = ifelse(is.na(new_sp_rating_num), NA,
-                                 ifelse(new_sp_rating_num <= 10, 1, 0)),
-                  m_new_ig = ifelse(is.na(new_moodys_rating_num), NA,
-                                ifelse(new_moodys_rating_num <= 10, 1, 0)),
-                  f_new_ig = ifelse(is.na(new_fitch_rating_num), NA,
-                                ifelse(new_fitch_rating_num <= 10, 1, 0)))
   ao_df = ao_df %>%
-    dplyr::inner_join(y = temp_df,
-                      by = c("issue_id" = "issue_id", "issuer_id" = "issuer_id"))
+    dplyr::inner_join(y = temp_df %>%
+                          dplyr::select(issue_id, industry_code, industry_group, naics_code,
+                                        finance_or_utility_flag, has_options_flag,
+                                        maturity_length, offering_yield, treasury_spread,
+                                        offering_price, coupon, sp_initial_num_rating,
+                                        moodys_initial_num_rating, fitch_initial_num_rating),
+                      by = c("issue_id" = "issue_id")) %>%
+    dplyr::left_join(y = sp_historical_ratings(wrds = wrds, dl = TRUE),
+                     by = c("issue_id" = "issue_id", "year" = "rating_year")) %>%
+    dplyr::left_join(y = moodys_historical_ratings(wrds = wrds, dl = TRUE),
+                     by = c("issue_id" = "issue_id", "year" = "rating_year")) %>%
+    dplyr::left_join(y = fitch_historical_ratings(wrds = wrds, dl = TRUE),
+                     by = c("issue_id" = "issue_id", "year" = "rating_year")) %>%
+    dplyr::mutate(best_num_rating = pmin(sp_num_rating, moodys_num_rating,
+                                         fitch_num_rating, na.rm = TRUE),
+                  best_initial_rating = pmin(sp_initial_num_rating, moodys_initial_num_rating,
+                                             fitch_initial_num_rating, na.rm = TRUE)) %>%
+    dplyr::mutate(best_num_rating = ifelse(is.na(best_num_rating), 23, best_num_rating),
+                  best_initial_rating = ifelse(is.na(best_initial_rating), 23, best_initial_rating),
+                  sp_initial_num_rating = ifelse(sp_initial_num_rating == 23,
+                                                 0, sp_initial_num_rating),
+                  moodys_initial_num_rating = ifelse(moodys_initial_num_rating == 23,
+                                                     0, moodys_initial_num_rating),
+                  fitch_initial_num_rating = ifelse(fitch_initial_num_rating == 23,
+                                                    0, fitch_initial_num_rating),
+                  sp_num_rating = ifelse(is.na(sp_num_rating) | sp_num_rating == 23,
+                                         0, sp_num_rating),
+                  moodys_num_rating = ifelse(is.na(moodys_num_rating) | moodys_num_rating == 23,
+                                         0, moodys_num_rating),
+                  fitch_num_rating = ifelse(is.na(fitch_num_rating) | fitch_num_rating == 23,
+                                         0, fitch_num_rating),
+                  sp_inv_grade = ifelse(is.na(sp_inv_grade), 0, sp_inv_grade),
+                  moodys_inv_grade = ifelse(is.na(moodys_inv_grade), 0, moodys_inv_grade),
+                  fitch_inv_grade = ifelse(is.na(fitch_inv_grade), 0, fitch_inv_grade),
+                  sp_rated = ifelse(is.na(sp_rating) | sp_rating == "NR", 0, 1),
+                  moodys_rated = ifelse(is.na(moodys_rating) | moodys_rating == "NR", 0, 1),
+                  fitch_rated = ifelse(is.na(fitch_rating) | fitch_rating == "NR", 0, 1),
+                  eao = estimated_amount_outstanding,
+                  fni = flag_new_issue_year) %>%
+    dplyr::mutate(agencies_rated_by = sp_rated + moodys_rated + fitch_rated,
+                  rated_by_any_flag = ifelse(agencies_rated_by > 0, 1, 0),
+                  avg_rating = (sp_num_rating + moodys_num_rating + fitch_num_rating) /
+                    (agencies_rated_by),
+                  avg_rating = ifelse(is.nan(avg_rating), NA, avg_rating),
+                  inv_grade_by_any_flag = ifelse(sp_inv_grade + fitch_inv_grade + moodys_inv_grade > 0,
+                                                 1, 0),
+                  avg_is_inv_grade_flag = ifelse(avg_rating <= 10, 1, 0),
+                  eao_above_25mm = ifelse(eao >= 25000, 1, 0),
+                  eao_above_50mm = ifelse(eao >= 50000, 1, 0),
+                  eao_above_100mm = ifelse(eao >= 100000, 1, 0),
+                  eao_above_150mm = ifelse(eao >= 150000, 1, 0),
+                  eao_above_200mm = ifelse(eao >= 200000, 1, 0),
+                  eao_above_250mm = ifelse(eao >= 250000, 1, 0),
+                  eao_above_300mm = ifelse(eao >= 300000, 1, 0),
+                  eao_above_500mm = ifelse(eao >= 500000, 1, 0),
+                  eao_above_1000mm = ifelse(eao >= 1000000, 1, 0))
   ao_df = ao_df %>%
-    dplyr::filter(flag_zero_ao == 0) %>%
-    dplyr::mutate(maturity_left = maturity_year - year) %>%
-    dplyr::group_by(issuer_id, year) %>%
+    dplyr::group_by(issuer_id, industry_code, industry_group,
+                    naics_code, finance_or_utility_flag, year) %>%
     dplyr::summarise(num_bonds = dplyr::n(),
-                     amount_oustanding = sum(estimated_amount_outstanding, na.rm = TRUE),
-                     wavg_coupon = weighted.mean(coupon,
-                                                 estimated_amount_outstanding, na.rm = TRUE),
-                     wavg_mat_left = weighted.mean(maturity_left,
-                                                   estimated_amount_outstanding, na.rm = TRUE),
+                     amount_outstanding = sum(eao, na.rm = TRUE),
+                     num_above_25mm = sum(eao_above_25mm, na.rm = TRUE),
+                     num_above_50mm = sum(eao_above_50mm, na.rm = TRUE),
+                     num_above_100mm = sum(eao_above_100mm, na.rm = TRUE),
+                     num_above_150mm = sum(eao_above_150mm, na.rm = TRUE),
+                     num_above_200mm = sum(eao_above_200mm, na.rm = TRUE),
+                     num_above_250mm = sum(eao_above_250mm, na.rm = TRUE),
+                     num_above_300mm = sum(eao_above_300mm, na.rm = TRUE),
+                     num_above_500mm = sum(eao_above_500mm, na.rm = TRUE),
+                     num_above_1000mm = sum(eao_above_1000mm, na.rm = TRUE),
+                     wavg_coupon = weighted.mean(coupon, eao, na.rm = TRUE),
+                     wavg_mat_left = weighted.mean(maturity_left, eao, na.rm = TRUE),
+                     wavg_has_options_flag = weighted.mean(has_options_flag, eao, na.rm = TRUE),
+                     num_rated_bonds = sum(rated_by_any_flag, na.rm = TRUE),
+                     num_inv_grade_bonds = sum(inv_grade_by_any_flag, na.rm = TRUE),
+                     wavg_best_rating = weighted.mean(best_num_rating, eao, na.rm = TRUE),
+                     wavg_avg_rating = weighted.mean(avg_rating, eao, na.rm = TRUE),
                      num_maturing_bonds = sum(flag_maturity_year, na.rm = TRUE),
-                     amount_maturing_bonds = sum(flag_maturity_year*estimated_amount_outstanding,
-                                                 na.rm = TRUE),
+                     amount_maturing_bonds = sum(flag_maturity_year*eao, na.rm = TRUE),
                      num_new_bonds = sum(flag_new_issue_year, na.rm = TRUE),
-                     amount_new_bonds = sum(flag_new_issue_year*offering_amt, na.rm = TRUE),
-                     wavg_coupon_new_bonds = weighted.mean(coupon*flag_new_issue_year,
-                                                           offering_amt*flag_new_issue_year,
-                                                           na.rm = TRUE),
-                     wavg_mat_new_bonds = weighted.mean(maturity_length*flag_new_issue_year,
-                                                        maturity_length*flag_new_issue_year,
-                                                        na.rm = TRUE),
-                     wavg_yield_new_bonds = weighted.mean(offering_yield*flag_new_issue_year,
-                                                          offering_yield*flag_new_issue_year,
-                                                          na.rm = TRUE),
-                     wavg_price_new_bonds = weighted.mean(offering_price*flag_new_issue_year,
-                                                          offering_price*flag_new_issue_year,
-                                                          na.rm = TRUE),
-                     wavg_sp_new_bonds = weighted.mean(new_sp_rating_num*flag_new_issue_year,
-                                                       new_sp_rating_num*flag_new_issue_year,
-                                                       na.rm = TRUE),
-                     wavg_moodys_new_bonds = weighted.mean(new_moodys_rating_num*flag_new_issue_year,
-                                                           new_moodys_rating_num*flag_new_issue_year,
-                                                           na.rm = TRUE),
-                     wavg_fitch_new_bonds = weighted.mean(new_fitch_rating_num*flag_new_issue_year,
-                                                          new_fitch_rating_num*flag_new_issue_year,
-                                                          na.rm = TRUE),
-                     sp_ig_new_bonds = sum(sp_new_ig*flag_new_issue_year, na.rm = TRUE),
-                     moodys_ig_new_bonds = sum(m_new_ig*flag_new_issue_year, na.rm = TRUE),
-                     fitch_ig_new_bonds = sum(f_new_ig*flag_new_issue_year, na.rm = TRUE)) %>%
+                     num_new_above_25mm = sum(fni*eao_above_25mm, na.rm = TRUE),
+                     num_new_above_50mm = sum(fni*eao_above_50mm, na.rm = TRUE),
+                     num_new_above_100mm = sum(fni*eao_above_100mm, na.rm = TRUE),
+                     num_new_above_150mm = sum(fni*eao_above_150mm, na.rm = TRUE),
+                     num_new_above_200mm = sum(fni*eao_above_200mm, na.rm = TRUE),
+                     num_new_above_250mm = sum(fni*eao_above_250mm, na.rm = TRUE),
+                     num_new_above_300mm = sum(fni*eao_above_300mm, na.rm = TRUE),
+                     num_new_above_500mm = sum(fni*eao_above_500mm, na.rm = TRUE),
+                     num_new_above_1000mm = sum(fni*eao_above_1000mm, na.rm = TRUE),
+                     amount_new_bonds = sum(flag_new_issue_year*eao, na.rm = TRUE),
+                     wavg_coupon_new_bonds = weighted.mean(coupon*fni, eao*fni, na.rm = TRUE),
+                     wavg_yield_new_bonds = weighted.mean(offering_yield*fni, eao*fni, na.rm = TRUE),
+                     wavg_price_new_bonds = weighted.mean(offering_price*fni, eao*fni, na.rm = TRUE),
+                     wavg_mat_new_bonds = weighted.mean(maturity_length*fni, eao*fni, na.rm = TRUE),
+                     pct_rated_new_bonds = weighted.mean(fni*rated_by_any_flag,
+                                                         fni, na.rm = TRUE),
+                     pct_inv_grade_new_bonds = sum(fni*inv_grade_by_any_flag,
+                                                   fni, na.rm = TRUE),
+                     wavg_initial_rating_new_bonds = weighted.mean(best_initial_rating*fni,
+                                                                   eao*fni, na.rm = TRUE)) %>%
     dplyr::mutate(wavg_coupon_new_bonds = ifelse(is.nan(wavg_coupon_new_bonds),
                                                  NA, wavg_coupon_new_bonds),
-                  wavg_mat_new_bonds = ifelse(is.nan(wavg_mat_new_bonds),
-                                                 NA, wavg_mat_new_bonds),
                   wavg_yield_new_bonds = ifelse(is.nan(wavg_yield_new_bonds),
                                                  NA, wavg_yield_new_bonds),
                   wavg_price_new_bonds = ifelse(is.nan(wavg_price_new_bonds),
                                                  NA, wavg_price_new_bonds),
-                  wavg_sp_new_bonds = ifelse(is.nan(wavg_sp_new_bonds),
-                                                 NA, wavg_sp_new_bonds),
-                  wavg_moodys_new_bonds = ifelse(is.nan(wavg_moodys_new_bonds),
-                                                 NA, wavg_moodys_new_bonds),
-                  wavg_fitch_new_bonds = ifelse(is.nan(wavg_fitch_new_bonds),
-                                                 NA, wavg_fitch_new_bonds))
+                  wavg_mat_new_bonds = ifelse(is.nan(wavg_mat_new_bonds),
+                                                 NA, wavg_mat_new_bonds),
+                  pct_rated_new_bonds = ifelse(is.nan(pct_rated_new_bonds),
+                                                 NA, pct_rated_new_bonds),
+                  pct_inv_grade_new_bonds = ifelse(is.nan(pct_inv_grade_new_bonds),
+                                                 NA, pct_inv_grade_new_bonds),
+                  wavg_initial_rating_new_bonds = ifelse(is.nan(wavg_initial_rating_new_bonds),
+                                                 NA, wavg_initial_rating_new_bonds))
+  # Merge onto a cartesian of this year with issuer id and keep min and max and hold the gaps or
+  #remove completley and mark it
   ao_df
 }
+
+
 
 
 

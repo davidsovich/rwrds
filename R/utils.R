@@ -128,40 +128,7 @@ mergent_ticker = function(wrds, dl = FALSE) {
   }
 }
 
-# Mergent initial credit ratings for bond issuances
-mergent_initial_ratings = function(wrds, dl = FALSE, date_distance = 1) {
-  ratings_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_ratings")) %>%
-    dplyr::filter(rating_type %in% c("MR", "FR", "SPR"),
-                  reason == "IN",
-                  !is.na(rating),
-                  rating != "NR") %>%
-    # dplyr does not support distinct(, .keep_all = TRUE) for PostgreSQL
-    dplyr::group_by(issue_id, rating_type) %>%
-    dplyr::mutate(row_num = dplyr::row_number()) %>%
-    dplyr::ungroup() %>%
-    dplyr::filter(row_num == 1) %>%
-    dplyr::select(issue_id, rating_type, rating, rating_date) %>%
-    dplyr::inner_join(y = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_mergedissue")) %>%
-                          dplyr::select(issue_id, offering_date),
-                      by = c("issue_id" = "issue_id")) %>%
-    dplyr::mutate(dist = abs(rating_date - offering_date)/365.25) %>%
-    dplyr::filter(!is.na(dist),
-                  dist <= date_distance) %>%
-    dplyr::select(issue_id, rating_type, rating, rating_date) %>%
-    dplyr::mutate(sp_initial_rating = ifelse(rating_type == "SPR", tolower(rating), NA),
-                  moodys_initial_rating = ifelse(rating_type == "MR", tolower(rating), NA),
-                  fitch_initial_rating = ifelse(rating_type == "FR", tolower(rating), NA)) %>%
-    dplyr::group_by(issue_id) %>%
-    dplyr::summarise(sp_initial_rating = max(sp_initial_rating, na.rm = TRUE),
-                     moodys_initial_rating = max(moodys_initial_rating, na.rm = TRUE),
-                     fitch_initial_rating = max(fitch_initial_rating, na.rm = TRUE),
-                     first_rating_date = min(rating_date, na.rm = TRUE))
-  if(dl == TRUE) {
-    ratings_df %>% dplyr::collect()
-  } else {
-    ratings_df
-  }
-}
+
 
 
 # Tack on ratings numbers rating_tto a given set of ratings
@@ -248,13 +215,21 @@ mergent_historical_ao = function(wrds, dl = FALSE) {
   mergent_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_amt_out_hist")) %>%
     dplyr::mutate(effective_year = date_part('year', effective_date)) %>%
     # keep one observation per year, dplyr does not support distinct(, .keep_all = TRUE)
-    dplyr::arrange(issue_id, effective_year, effective_date) %>%
+    dplyr::arrange(issue_id, effective_year, desc(effective_date)) %>%
     dplyr::group_by(issue_id, effective_year) %>%
     dplyr::mutate(row_num = dplyr::row_number(),
                   num_obs = dplyr::n()) %>%
     dplyr::ungroup() %>%
     dplyr::filter(row_num == num_obs) %>%
     dplyr::select(-dplyr::one_of(c("row_num", "num_obs"))) %>%
+    # begin changes - remove ao updates that are for same value as initial offering amount
+    dplyr::left_join(y = mergent_issues(wrds = wrds, clean = FALSE, vanilla = FALSE, dl = FALSE) %>%
+                         dplyr::select(issue_id, offering_amt) %>%
+                         dplyr::filter(offering_amt > 0),
+                     by = c("issue_id" = "issue_id")) %>%
+    dplyr::filter(amount_outstanding != offering_amt) %>%
+    dplyr::select(-offering_amt) %>%
+    # end changes
     dplyr::group_by(issue_id) %>%
     dplyr::mutate(min_effective_year = min(effective_year, na.rm = TRUE)) %>%
     dplyr::ungroup()
@@ -349,6 +324,100 @@ fitch_historical_ratings = function(wrds, dl = FALSE) {
     dplyr::rename(fitch_rating = rating,
                   fitch_num_rating = num_rating,
                   fitch_inv_grade = inv_grade)
+  if(dl == TRUE) {
+    fr_df %>% dplyr::collect()
+  } else {
+    fr_df
+  }
+}
+
+# Mergent initial credit ratings for bond issuances
+mergent_initial_ratings = function(wrds, dl = FALSE, date_distance = 1) {
+  rating_df = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_ratings")) %>%
+    dplyr::filter(rating_type %in% c("MR", "FR", "SPR"),
+                  reason == "IN",
+                  !(rating %in% c("0", "Aa", "Ba", "Baa", "B+(EXP)", "Caa", "DD",
+                                  "DDD", "NAV", "P-1", "SUSP"))) %>%
+    dplyr::filter(rating != "NR") %>%
+    dplyr::group_by(issue_id, rating_type) %>%
+    dplyr::mutate(row_num = dplyr::row_number()) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(row_num == 1) %>%
+    dplyr::select(issue_id, rating_type, rating_date, rating) %>%
+    dplyr::mutate(num_rating = dplyr::case_when(
+      rating %in% c("Aaa", "AAA") ~ 1,
+      rating %in% c("Aa1", "AA+") ~ 2,
+      rating %in% c("Aa2", "AA") ~ 3,
+      rating %in% c("Aa3", "AA-") ~ 4,
+      rating %in% c("A1", "A+") ~ 5,
+      rating %in% c("A2", "A") ~ 6,
+      rating %in% c("A3", "A-") ~ 7,
+      rating %in% c("Baa1", "BBB+") ~ 8,
+      rating %in% c("Baa2", "BBB") ~ 9,
+      rating %in% c("Baa3", "BBB-") ~ 10,
+      rating %in% c("Ba1", "BB+") ~ 11,
+      rating %in% c("Ba2", "BB") ~ 12,
+      rating %in% c("Ba3", "BB-") ~ 13,
+      rating %in% c("B1", "B+") ~ 14,
+      rating %in% c("B2", "B") ~ 15,
+      rating %in% c("B3", "B-") ~ 16,
+      rating %in% c("Caa1", "CCC+") ~ 17,
+      rating %in% c("Caa2", "CCC") ~ 18,
+      rating %in% c("Caa3", "CCC-") ~ 19,
+      rating %in% c("Ca", "CC") ~ 20,
+      rating %in% c("C") ~ 21,
+      rating %in% c("D") ~ 22,
+      rating %in% c("NR") ~ 23,
+      TRUE ~ NA)) %>%
+    dplyr::mutate(inv_grade = ifelse(num_rating <= 10, 1, 0)) %>%
+    dplyr::inner_join(y = dplyr::tbl(wrds, dbplyr::in_schema("fisd", "fisd_mergedissue")) %>%
+                        dplyr::select(issue_id, offering_date),
+                      by = c("issue_id" = "issue_id")) %>%
+    dplyr::mutate(dist = abs(rating_date - offering_date)/365.25) %>%
+    dplyr::filter(!is.na(dist),
+                  dist <= date_distance)
+  if(dl == TRUE) {
+    rating_df %>% dplyr::collect()
+  } else {
+    rating_df
+  }
+}
+
+
+# Class by class initial ratings
+sp_initial_ratings = function(wrds, dl = FALSE, date_distance = 1) {
+  sp_df = mergent_initial_ratings(wrds, dl = FALSE, date_distance = date_distance) %>%
+    dplyr::filter(rating_type == "SPR") %>%
+    dplyr::select(issue_id, rating_date, rating, num_rating, inv_grade) %>%
+    dplyr::rename(sp_initial_rating = rating,
+                  sp_initial_num_rating = num_rating,
+                  sp_initial_inv_grade = inv_grade)
+  if(dl == TRUE) {
+    sp_df %>% dplyr::collect()
+  } else {
+    sp_df
+  }
+}
+moodys_initial_ratings = function(wrds, dl = FALSE, date_distance = 1) {
+  mr_df = mergent_initial_ratings(wrds, dl = FALSE, date_distance = date_distance) %>%
+    dplyr::filter(rating_type == "MR") %>%
+    dplyr::select(issue_id, rating_date, rating, num_rating, inv_grade) %>%
+    dplyr::rename(moodys_initial_rating = rating,
+                  moodys_initial_num_rating = num_rating,
+                  moodys_initial_inv_grade = inv_grade)
+  if(dl == TRUE) {
+    mr_df %>% dplyr::collect()
+  } else {
+    mr_df
+  }
+}
+fitch_initial_ratings = function(wrds, dl = FALSE, date_distance = 1) {
+  fr_df = mergent_initial_ratings(wrds, dl = FALSE, date_distance = date_distance) %>%
+    dplyr::filter(rating_type == "FR") %>%
+    dplyr::select(issue_id, rating_date, rating, num_rating, inv_grade) %>%
+    dplyr::rename(fitch_initial_rating = rating,
+                  fitch_initial_num_rating = num_rating,
+                  fitch_initial_inv_grade = inv_grade)
   if(dl == TRUE) {
     fr_df %>% dplyr::collect()
   } else {

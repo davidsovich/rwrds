@@ -21,6 +21,22 @@ wrds_connect = function(username, password) {
   return(wrds)
 }
 
+#' Disconnect from WRDS cloud
+#'
+#' \code{wrds_disconnect} closes a remote connection to the WRDS cloud.
+#'
+#' Note: WRDS cloud runs PostgreSQL.
+#'
+#' @export
+#'
+#' @param wrds WRDS connection.
+#' @examples
+#' wrds = wrds_connect(username = Sys.getenv("WRDS_NAME"), password = Sys.getenv("WRDS_PASS"))
+#' wrds_disconnect(wrds = wrds)
+wrds_disconnect = function(wrds) {
+  RPostgres::dbDisconnect(wrds)
+}
+
 #' List available schemas in WRDS
 #'
 #' \code{wrds_schema_list} downloads a list of the available schemas in the WRDS cloud.
